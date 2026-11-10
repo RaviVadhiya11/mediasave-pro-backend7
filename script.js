@@ -255,6 +255,15 @@
     recordHistory('Instagram', 'Loaded ' + items.length + ' authorized media items');
   }
 
+  const sampleUrlButton = $('sample-url');
+  if (sampleUrlButton && urlInput) {
+    sampleUrlButton.addEventListener('click', () => {
+      urlInput.value = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
+      urlInput.focus();
+      result.hidden = true;
+    });
+  }
+
   if (clearButton) {
     clearButton.addEventListener('click', () => {
       urlInput.value = '';
