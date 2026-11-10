@@ -7,6 +7,7 @@ const field=(label,control,help='')=>'<div class="field"><label>'+label+'</label
 const select=(id,opts)=>'<select id="'+id+'">'+opts+'</select>';
 const number=(id,val,min=1,max=8000)=>'<input id="'+id+'" type="number" min="'+min+'" max="'+max+'" value="'+val+'">';
 function setupOptions(){
+if(!options)return;
 let html='';
 if(tool==='compress-image')html=field('Output format',select('format','<option value="image/webp">WebP — smaller files</option><option value="image/jpeg">JPG</option><option value="image/png">PNG</option>'))+field('Quality <b id="quality-value">82%</b>','<input id="quality" type="range" min="30" max="100" value="82">','Lower quality generally means a smaller file. PNG ignores this slider.');
 if(tool==='resize-image')html=field('Width (px)',number('width',1200))+field('Height (px)',number('height',1200))+field('Output format',select('format',formats))+'<label class="check-line"><input id="keep-ratio" type="checkbox" checked> Keep aspect ratio</label><div class="option-note">Maximum output dimension: 8000 px.</div>';
