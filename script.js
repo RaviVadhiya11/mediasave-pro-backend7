@@ -425,8 +425,13 @@
         };
 
         videoPreview.pause();
-        videoPreview.currentTime = 0;
-        await waitForVideoEvent(videoPreview, 'seeked');
+        if (videoPreview.currentTime > 0.05) {
+          const seeked = waitForVideoEvent(videoPreview, 'seeked');
+          videoPreview.currentTime = 0;
+          await seeked;
+        } else {
+          videoPreview.currentTime = 0;
+        }
         context.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
         recorder.start(1000);
         videoPreview.addEventListener('ended', () => {
