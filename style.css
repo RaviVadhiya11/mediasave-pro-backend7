@@ -5,3 +5,6 @@
 
 
 .ig-key-wrap{display:flex;align-items:center;background:#0b0b13;border:1px solid #39354d;border-radius:11px;padding:0 14px;height:52px;margin:8px 0}.ig-key-wrap:focus-within{border-color:#9b6cff;box-shadow:0 0 0 3px #9b6cff20}.ig-key-wrap input{width:100%;min-width:0;background:transparent;border:0;outline:0;color:#fff;font:13px 'DM Sans'}.ig-key-wrap input::placeholder{color:#716d82}.ig-key-help{font-size:10px;color:#858197;margin:-1px 0 17px}
+
+
+.ig-preview-video{display:block;width:100%;max-height:430px;aspect-ratio:4/3;object-fit:contain;background:#05050a}.ig-no-preview{display:grid;place-items:center;min-height:150px;background:#0b0b13;color:#9c96ad;font-size:12px}.ig-item-unavailable{color:#f0c27a;font-size:10px;line-height:1.55;margin:8px 0}.ig-item-links a:first-child{background:linear-gradient(110deg,#8051e9,#a553db);border-color:#8d5ce0;color:#fff;font-weight:700}
