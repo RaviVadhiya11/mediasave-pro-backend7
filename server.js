@@ -181,7 +181,7 @@ app.post('/api/resolve', (req, res) => {
   try {
     url = new URL(raw);
   } catch {
-    return res.status(400).json({ error: 'A valid direct file URL is required.' });
+    return res.status(400).json({ error: 'Enter a valid URL.' });
   }
 
   if (!['http:', 'https:'].includes(url.protocol)) {
@@ -192,11 +192,69 @@ app.post('/api/resolve', (req, res) => {
   }
 
   const host = url.hostname.toLowerCase();
-  const social = /(^|\.)(instagram\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch|tiktok\.com|x\.com|twitter\.com)$/i.test(host);
-  if (social) {
-    return res.status(422).json({
-      error: 'This is a social-media post URL, not a direct media-file URL.',
-      guidance: 'Use the platform’s own download/export options, or use a direct file URL you own or have permission to save.'
+  const isHost = domain => host === domain || host.endsWith('.' + domain);
+  let platform = null;
+
+  if (isHost('instagram.com')) platform = 'instagram';
+  else if (isHost('youtube.com') || host === 'youtu.be') platform = 'youtube';
+  else if (isHost('facebook.com') || host === 'fb.watch') platform = 'facebook';
+  else if (isHost('snapchat.com') || isHost('t.snapchat.com')) platform = 'snapchat';
+
+  if (platform) {
+    const guides = {
+      instagram: {
+        platformName: 'Instagram',
+        title: 'Save Instagram Reels and posts',
+        instructions: [
+          'Open the Reel or post in the Instagram app.',
+          'Use Instagram’s own Download option when it is shown by the creator.',
+          'For your own uploads, use Instagram’s account export or save the original from your device.',
+          'If no Download option or authorized file URL is provided, MediaSave Pro cannot extract it.'
+        ],
+        helpUrl: 'https://help.instagram.com/'
+      },
+      youtube: {
+        platformName: 'YouTube',
+        title: 'Save YouTube videos and Shorts',
+        instructions: [
+          'For a video you uploaded, open YouTube Studio → Content → menu → Download.',
+          'For other videos, use YouTube’s official offline-viewing features where available; they do not provide a general MP4 file.',
+          'A third-party downloader must not bypass YouTube’s download restrictions.'
+        ],
+        helpUrl: 'https://support.google.com/youtube/answer/56100'
+      },
+      facebook: {
+        platformName: 'Facebook',
+        title: 'Save Facebook videos and Reels',
+        instructions: [
+          'Open the video in Facebook and check whether the post provides an official Save or Download option.',
+          'For your own uploads, use Facebook’s available download or account-information export tools.',
+          'If the owner or Facebook does not provide a permitted file link, ask the owner for the original.'
+        ],
+        helpUrl: 'https://www.facebook.com/help/'
+      },
+      snapchat: {
+        platformName: 'Snapchat',
+        title: 'Save Snapchat Spotlight and Stories',
+        instructions: [
+          'For your own Snaps, Spotlight posts and Stories, use Snapchat’s Save or Memories controls before or after publishing where available.',
+          'You can also use Snapchat’s account-data download tools for your own account information.',
+          'Do not save or redistribute another creator’s content without permission.'
+        ],
+        helpUrl: 'https://help.snapchat.com/'
+      }
+    };
+
+    const guide = guides[platform];
+    return res.json({
+      status: 'platform-guide',
+      platform,
+      platformName: guide.platformName,
+      title: guide.title,
+      instructions: guide.instructions,
+      helpUrl: guide.helpUrl,
+      originalUrl: url.toString(),
+      note: 'A public post link is not a direct media file. MediaSave Pro does not scrape social platforms, bypass logins, DRM, or creator download settings.'
     });
   }
 
@@ -205,14 +263,20 @@ app.post('/api/resolve', (req, res) => {
     'mp3', 'm4a', 'wav', 'ogg', 'opus',
     'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'
   ]);
-  const pathPart = decodeURIComponent(url.pathname);
+
+  let pathPart;
+  try {
+    pathPart = decodeURIComponent(url.pathname);
+  } catch {
+    return res.status(400).json({ error: 'The URL path is malformed.' });
+  }
   const match = pathPart.match(/\.([a-z0-9]{2,5})$/i);
   const extension = match ? match[1].toLowerCase() : '';
   if (!extension || !allowedExtensions.has(extension)) {
     return res.status(422).json({
       error: 'The URL does not look like a direct supported media file.',
       supportedTypes: ['MP4', 'M4V', 'WebM', 'MOV', 'AVI', 'MKV', 'MP3', 'M4A', 'WAV', 'OGG', 'JPG', 'PNG', 'GIF', 'WebP', 'AVIF'],
-      guidance: 'Paste a direct file URL ending in a supported media extension. A social post page or a normal webpage is not a direct file.'
+      guidance: 'Paste a direct file URL ending in a supported media extension. A social post page or normal webpage is not a direct file.'
     });
   }
 
@@ -223,7 +287,7 @@ app.post('/api/resolve', (req, res) => {
     host,
     filename,
     url: url.toString(),
-    note: 'The browser will open the source file. Whether it downloads or previews depends on the source host and your browser. MediaSave Pro does not proxy or rehost remote files.'
+    note: 'The original file is opened from its host. MediaSave Pro does not proxy or rehost remote files, and cannot provide a resolution higher than the source.'
   });
 });
 
