@@ -1,4 +1,4 @@
-# MediaSave Pro — v3.7
+# MediaSave Pro — v3.8
 
 A public hybrid media-tools website with a Node.js API backend.
 
@@ -11,7 +11,7 @@ A public hybrid media-tools website with a Node.js API backend.
 - **Browser video tools:** selects a local video and creates a WebM output capped at 480p, 720p, 1080p, 1440p (2K) or 2160p (4K), where the browser/device supports it. Output never upscales beyond the source dimensions and cannot create missing detail. 2K/4K processing can be too demanding for some phones.
 - **PNG thumbnail:** creates a PNG thumbnail locally from a selected video.
 - **Dark/light theme and recent activity:** preferences and action labels/timestamps are stored in local browser storage.
-- **Private owner Instagram page:** lists media from the site owner's authorized Instagram Professional account at `owner.html`. Available media URLs have a Download file action using the same direct-file endpoint when eligible.
+- **Private owner Instagram page:** lists media from the site owner's authorized Instagram Professional account at `owner.html`, including carousel child items when Meta returns them. Each item has a Download file action only when Meta provides a direct media URL that the server can safely stream. This is not a public downloader for other Instagram accounts.
 
 ## Important platform limitations
 
