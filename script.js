@@ -77,6 +77,75 @@
     }
   }
 
+  const themeToggle = $('theme-toggle');
+  const historyList = $('history-list');
+  const clearHistoryButton = $('clear-history');
+  const HISTORY_KEY = 'mediasave-pro-history-v1';
+
+  function applyTheme(theme) {
+    document.body.classList.toggle('light-theme', theme === 'light');
+    if (themeToggle) themeToggle.textContent = theme === 'light' ? 'Dark mode' : 'Light mode';
+  }
+
+  function readHistory() {
+    try {
+      const value = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      return Array.isArray(value) ? value : [];
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  function renderHistory() {
+    if (!historyList) return;
+    const entries = readHistory();
+    historyList.replaceChildren();
+    if (!entries.length) {
+      addText(historyList, 'p', 'history-empty', 'No recent activity yet.');
+      return;
+    }
+    entries.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'history-row';
+      const details = document.createElement('div');
+      addText(details, 'strong', 'history-title', item.title || 'Media tool action');
+      addText(details, 'span', 'history-time', new Date(item.time).toLocaleString());
+      row.appendChild(details);
+      addText(row, 'span', 'history-kind', item.kind || 'Activity');
+      historyList.appendChild(row);
+    });
+  }
+
+  function recordHistory(kind, title) {
+    try {
+      const entries = readHistory();
+      entries.unshift({ kind, title, time: Date.now() });
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, 30)));
+      renderHistory();
+    } catch (_error) {
+      // Local history is optional; tool actions still work when storage is unavailable.
+    }
+  }
+
+  if (themeToggle) {
+    let savedTheme = 'dark';
+    try { savedTheme = localStorage.getItem('mediasave-pro-theme') || 'dark'; } catch (_error) {}
+    applyTheme(savedTheme);
+    themeToggle.addEventListener('click', () => {
+      const nextTheme = document.body.classList.contains('light-theme') ? 'dark' : 'light';
+      applyTheme(nextTheme);
+      try { localStorage.setItem('mediasave-pro-theme', nextTheme); } catch (_error) {}
+    });
+  }
+
+  if (clearHistoryButton) {
+    clearHistoryButton.addEventListener('click', () => {
+      try { localStorage.removeItem(HISTORY_KEY); } catch (_error) {}
+      renderHistory();
+    });
+  }
+  renderHistory();
+
   function addText(parent, tag, className, value) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -169,6 +238,7 @@
     instagramGrid.hidden = false;
     instagramMessage.textContent = 'Loaded ' + items.length + ' item(s). Media file links are shown only when Instagram provides them.';
     instagramMessage.className = 'ig-message ig-success';
+    recordHistory('Instagram', 'Loaded ' + items.length + ' authorized media items');
   }
 
   if (clearButton) {
@@ -225,6 +295,7 @@
           note.textContent = 'The source host controls whether the browser downloads the file or opens a preview. If it opens a video, use the browser player menu to save it when available.';
           actionBox.appendChild(note);
           result.appendChild(actionBox);
+          recordHistory('Direct link', response.data.filename || 'Media file link checked');
         }
       } catch (error) {
         output.textContent = error.message;
@@ -457,6 +528,7 @@
         const outputName = originalName + '-mediasave.webm';
         addVideoDownload(blob, outputName, 'Download converted WebM · ' + (blob.size / (1024 * 1024)).toFixed(1) + ' MB');
         showVideoStatus('Finished. Your converted video was created on this device; it was not uploaded.', 'video-success');
+        recordHistory('Video tool', outputName);
       } catch (error) {
         showVideoStatus(error.message || 'Video conversion failed.', 'video-error');
       } finally {
@@ -491,6 +563,7 @@
         const name = (videoInput.files[0].name || 'video').replace(/\.[^.]+$/, '') + '-thumbnail.png';
         addVideoDownload(blob, name, 'Download thumbnail PNG');
         showVideoStatus('Thumbnail created on this device.', 'video-success');
+        recordHistory('Thumbnail', name);
       } catch (error) {
         showVideoStatus(error.message || 'Thumbnail creation failed.', 'video-error');
       }
