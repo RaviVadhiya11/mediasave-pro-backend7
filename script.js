@@ -2,7 +2,7 @@
   'use strict';
 
   const config = window.MEDIASAVE_CONFIG || {};
-  const base = String(config.API_BASE_URL || '').replace(/\\/+$/, '');
+  const base = String(config.API_BASE_URL || '').replace(/\/+$/, '');
   const $ = id => document.getElementById(id);
 
   const status = $('api-status');
