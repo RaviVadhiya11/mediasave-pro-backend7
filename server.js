@@ -191,7 +191,7 @@ app.post('/api/resolve', (req, res) => {
   }
 
   const host = url.hostname.toLowerCase();
-  const social = /(^|\\.)(instagram\\.com|youtube\\.com|youtu\\.be|facebook\\.com|fb\\.watch|tiktok\\.com|x\\.com|twitter\\.com)$/i.test(host);
+  const social = /(^|\.)(instagram\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch|tiktok\.com|x\.com|twitter\.com)$/i.test(host);
   if (social) {
     return res.status(422).json({
       error: 'This is a social-media post URL, not a direct media-file URL.',
@@ -205,7 +205,7 @@ app.post('/api/resolve', (req, res) => {
     'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'
   ]);
   const pathPart = decodeURIComponent(url.pathname);
-  const match = pathPart.match(/\\.([a-z0-9]{2,5})$/i);
+  const match = pathPart.match(/\.([a-z0-9]{2,5})$/i);
   const extension = match ? match[1].toLowerCase() : '';
   if (!extension || !allowedExtensions.has(extension)) {
     return res.status(422).json({
