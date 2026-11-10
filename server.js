@@ -175,30 +175,54 @@ app.get('/api/instagram/media', async (req, res) => {
 });
 
 app.post('/api/resolve', (req, res) => {
-  const raw = String(req.body?.url || '');
+  const raw = String(req.body?.url || '').trim();
   let url;
   try {
     url = new URL(raw);
   } catch {
-    return res.status(400).json({ error: 'A valid URL is required.' });
+    return res.status(400).json({ error: 'A valid direct file URL is required.' });
   }
 
   if (!['http:', 'https:'].includes(url.protocol)) {
     return res.status(400).json({ error: 'Only HTTP and HTTPS URLs are accepted.' });
   }
+  if (url.username || url.password) {
+    return res.status(400).json({ error: 'URLs containing embedded usernames or passwords are not accepted.' });
+  }
 
   const host = url.hostname.toLowerCase();
-  const social = /(^|\.)(instagram\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch)$/i.test(host);
+  const social = /(^|\\.)(instagram\\.com|youtube\\.com|youtu\\.be|facebook\\.com|fb\\.watch|tiktok\\.com|x\\.com|twitter\\.com)$/i.test(host);
   if (social) {
     return res.status(422).json({
-      error: 'This is a social-media post URL, not a direct media file.',
-      guidance: 'Use the authorized Instagram account media list or the platform’s official download/export options.'
+      error: 'This is a social-media post URL, not a direct media-file URL.',
+      guidance: 'Use the platform’s own download/export options, or use a direct file URL you own or have permission to save.'
     });
   }
 
-  return res.status(501).json({
-    error: 'No generic remote-file resolver is enabled.',
-    guidance: 'Use a direct media URL from a source that permits browser access, or load your own Instagram media through /api/instagram/media.'
+  const allowedExtensions = new Set([
+    'mp4', 'm4v', 'webm', 'mov', 'avi', 'mkv',
+    'mp3', 'm4a', 'wav', 'ogg', 'opus',
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'
+  ]);
+  const pathPart = decodeURIComponent(url.pathname);
+  const match = pathPart.match(/\\.([a-z0-9]{2,5})$/i);
+  const extension = match ? match[1].toLowerCase() : '';
+  if (!extension || !allowedExtensions.has(extension)) {
+    return res.status(422).json({
+      error: 'The URL does not look like a direct supported media file.',
+      supportedTypes: ['MP4', 'M4V', 'WebM', 'MOV', 'AVI', 'MKV', 'MP3', 'M4A', 'WAV', 'OGG', 'JPG', 'PNG', 'GIF', 'WebP', 'AVIF'],
+      guidance: 'Paste a direct file URL ending in a supported media extension. A social post page or a normal webpage is not a direct file.'
+    });
+  }
+
+  const filename = pathPart.split('/').pop() || ('media.' + extension);
+  return res.json({
+    status: 'validated',
+    type: 'direct-media-link',
+    host,
+    filename,
+    url: url.toString(),
+    note: 'The browser will open the source file. Whether it downloads or previews depends on the source host and your browser. MediaSave Pro does not proxy or rehost remote files.'
   });
 });
 
