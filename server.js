@@ -74,9 +74,25 @@ app.get('/api/providers', (_req, res) => {
   });
 });
 
-// Lists media for the Instagram account assigned to the Unified Login system-user token.
-// The token stays on Render; it is never returned to the browser.
+// Private endpoint: requires an owner-held key in addition to the server-side Meta token.
 app.get('/api/instagram/media', async (req, res) => {
+  const accessKey = process.env.MEDIA_ACCESS_KEY;
+  const suppliedKey = String(req.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!accessKey) {
+    return res.status(503).json({
+      error: 'Private media access is not configured on the server.',
+      requiredEnvironmentVariable: 'MEDIA_ACCESS_KEY'
+    });
+  }
+  const crypto = require('crypto');
+  const expected = Buffer.from(accessKey);
+  const supplied = Buffer.from(suppliedKey);
+  const keyMatches = expected.length === supplied.length &&
+    crypto.timingSafeEqual(expected, supplied);
+  if (!keyMatches) {
+    return res.status(401).json({ error: 'Private access key is missing or incorrect.' });
+  }
+
   const token = process.env.INSTAGRAM_ACCESS_TOKEN;
   const mode = (process.env.INSTAGRAM_API_MODE || 'unified').toLowerCase();
   const version = process.env.INSTAGRAM_GRAPH_VERSION || 'v27.0';
@@ -88,14 +104,12 @@ app.get('/api/instagram/media', async (req, res) => {
       requiredEnvironmentVariable: 'INSTAGRAM_ACCESS_TOKEN'
     });
   }
-
   if (mode === 'unified' && !instagramUserId) {
     return res.status(503).json({
       error: 'Unified Login requires the Instagram account ID.',
       requiredEnvironmentVariable: 'INSTAGRAM_USER_ID'
     });
   }
-
   if (!['unified', 'instagram_login'].includes(mode)) {
     return res.status(500).json({ error: 'Unsupported Instagram API mode.' });
   }
@@ -105,8 +119,6 @@ app.get('/api/instagram/media', async (req, res) => {
     ? Math.min(Math.max(requestedLimit, 1), 25)
     : 15;
 
-  // Unified Login uses a Business Integration System User token on graph.facebook.com
-  // and the assigned Instagram professional account ID. Instagram Login uses graph.instagram.com/me.
   const graphHost = mode === 'unified' ? 'graph.facebook.com' : 'graph.instagram.com';
   const edge = mode === 'unified'
     ? '/' + encodeURIComponent(instagramUserId) + '/media'
