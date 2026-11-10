@@ -120,7 +120,7 @@ function readableAIError(error){
 async function processBackgroundRemoval(file){
  status.textContent='Preparing your original photo…';
  const decoded=await loadImage(file),sw=decoded.naturalWidth||decoded.width,sh=decoded.naturalHeight||decoded.height;
- const scale=Math.min(1,1024/Math.max(sw,sh));
+ const scale=Math.min(1,1280/Math.max(sw,sh));
  const prepared=makeCanvas(Math.max(1,Math.round(sw*scale)),Math.max(1,Math.round(sh*scale)));
  prepared.getContext('2d').drawImage(decoded,0,0,prepared.width,prepared.height);
  const inputBlob=await exportCanvas(prepared,'image/png');
