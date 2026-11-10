@@ -1,52 +1,41 @@
-# MediaSave Pro — v3.8
+# MediaSave Pro — Fresh FastVideoSave-inspired website
 
-A public hybrid media-tools website with a Node.js API backend.
+This branch contains the new mobile-first MediaSave Pro front end. It is a clean, original layout inspired by the simple paste-link flow used by media saver websites; it does not copy another site's logo or text.
 
-## Public features
+## Publish this website with GitHub Pages
 
-- **Direct media-file download:** validates direct HTTPS URLs and streams supported MP4, M4V, WebM, MOV, AVI, MKV, MP3, M4A, WAV, OGG, Opus, JPG, PNG, GIF, WebP or AVIF files from the original host to the visitor as an attachment.
-- **Video thumbnail preview:** for direct video-file URLs, the API streams byte-range video previews to the browser; the browser extracts a thumbnail frame locally. If the proxy preview fails, the page attempts native browser playback as a fallback. No thumbnail is saved on the server. Public DNS-resolvable IPv4 host only, HTTPS port 443, no redirects, supported video extension and video MIME type, 100 MB maximum and per-IP limits apply.
-- **Download constraints:** public DNS-resolvable IPv4 host only, HTTPS port 443, no redirects, supported media extension and media MIME type required, 100 MB per file, and a per-IP request limit. This is not a general URL proxy. Some hosts may block server requests.
-- **Platform link guide:** identifies Instagram, YouTube, Facebook and Snapchat post links, then shows official save/export steps and an Open Original option. It does not extract arbitrary social posts.
-- **Browser video tools:** selects a local video and creates a WebM output capped at 480p, 720p, 1080p, 1440p (2K) or 2160p (4K), where the browser/device supports it. Output never upscales beyond the source dimensions and cannot create missing detail. 2K/4K processing can be too demanding for some phones.
-- **PNG thumbnail:** creates a PNG thumbnail locally from a selected video.
-- **Dark/light theme and recent activity:** preferences and action labels/timestamps are stored in local browser storage.
-- **Private owner Instagram page:** lists media from the site owner's authorized Instagram Professional account at `owner.html`, including carousel child items when Meta returns them. Each item has a Download file action only when Meta provides a direct media URL that the server can safely stream. This is not a public downloader for other Instagram accounts.
+1. Open the repository Settings.
+2. Open Pages.
+3. Under Build and deployment, choose Deploy from a branch.
+4. Select branch `main` (the new design is deployed from main).
+5. Select folder `/(root)`.
+6. Save. The new site will publish at:
+   `https://ravivadhiya11.github.io/mediasave-pro-backend7/`
 
-## Important platform limitations
+The previous frontend design is preserved in the `fastvideosave-inspired` branch. Render continues deploying its backend from `main`; the API server.js remains in place.
 
-A public post URL is not automatically a direct media file. Instagram, YouTube, Facebook and Snapchat do not provide one common official API that lets a third-party site download arbitrary public videos from every account. Availability of native save options depends on the platform, creator settings, account and content rights.
+## Backend
 
-Use the platform's native download/export features or only files you own or have permission to save. This project does not scrape public accounts, bypass private-account access, logins, DRM, creator download settings or platform restrictions. 1080p/2K/4K output is possible only up to the source resolution and browser/device capabilities.
-
-## Render deployment
-
-- Runtime: Node
-- Build command: `npm install`
-- Start command: `npm start`
-- Set `ALLOWED_ORIGINS` in Render to the actual GitHub Pages origins you use, comma-separated.
-- Required secrets for the private Instagram owner feature:
-  - `INSTAGRAM_API_MODE=unified`
-  - `INSTAGRAM_ACCESS_TOKEN` (fresh Meta system-user access token; secret)
-  - `INSTAGRAM_USER_ID`
-  - `INSTAGRAM_GRAPH_VERSION=v27.0`
-  - `MEDIA_ACCESS_KEY` (long unique owner-only secret)
-
-Never put a real access token, App Secret, password or `MEDIA_ACCESS_KEY` in GitHub files or chat. If a token was shown in a screenshot, revoke it and replace it in Render.
-
-## API endpoints
+The page calls the existing Render API at `https://mediasave-pro-backend7.onrender.com`.
 
 - `GET /api/health`
-- `GET /api/providers`
-- `POST /api/resolve` — identifies supported social-platform URLs and returns official save/export instructions, or validates a direct media-file URL.
-- `GET /api/preview?url=<encoded-direct-video-url>` — streams a permitted direct video with byte-range support for local thumbnail generation.
-- `POST /api/download` — streams a permitted direct media file as an attachment. Requires form field `url`; 100 MB maximum; HTTPS only; no redirects; public IPv4 DNS only; limited to five requests per minute per IP.
-- `GET /api/instagram/media?limit=15` — private owner endpoint requiring `Authorization: Bearer <MEDIA_ACCESS_KEY>`.
+- `POST /api/resolve` — validates direct media links or returns official platform save instructions.
+- `POST /api/download` — streams supported direct HTTPS media files to the browser as attachments (100 MB limit, rate limited, public-host check, no redirects).
+- `GET /api/preview?url=...` — previews permitted direct video files when the source allows it.
+- `GET /api/instagram/media?limit=...` — owner-only authorised Instagram Professional account feed endpoint.
 
-## GitHub Pages
+## Important limitations
 
-Publish the static site from `main` and `/(root)`. Main files include `index.html`, `owner.html`, `privacy.html`, `terms.html`, `contact.html`, `style.css`, `script.js`, and `app-config.js`.
+This website does not scrape Instagram, YouTube, Facebook or Snapchat post pages, bypass logins, DRM, creator download settings, or extract arbitrary public posts. A social post URL receives official save/export guidance. The owner-only Instagram page can show only media URLs supplied by Meta for the connected Professional account; some posts may not provide downloadable URLs.
 
-## Monetization readiness
+Only download media you own or have permission to use. Platform permissions, creator settings, file-host behaviour and browser/device support affect results.
 
-No advertising script is included. Before applying to an ad network, review its current policies, add real support and takedown contact processes, and publish original useful content. Approval and earnings are not guaranteed.
+## Files
+
+- `index.html` — new home page
+- `style.css` — responsive light/dark theme
+- `script.js` — link checker, direct-file download, preview and local history
+- `app-config.js` — Render API URL
+- `owner.html` — private owner-only Instagram media library
+- `privacy.html`, `terms.html`, `contact.html`, `dmca.html` — support/legal pages
+- `robots.txt`, `sitemap.xml`, `manifest.webmanifest`, `404.html` — SEO/PWA/site support
