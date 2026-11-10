@@ -480,7 +480,7 @@ app.post('/api/resolve', (req, res) => {
     host,
     filename,
     url: url.toString(),
-    note: 'The original file is opened from its host. MediaSave Pro does not proxy or rehost remote files, and cannot provide a resolution higher than the source.'
+    note: 'The Download file action streams the original media from its host through this API as an attachment; files are not persistently stored. The API does not alter or increase the source resolution.'
   });
 });
 
