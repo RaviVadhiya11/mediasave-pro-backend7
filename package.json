@@ -1,6 +1,6 @@
 {
   "name": "mediasave-pro-api",
-  "version": "3.6.0",
+  "version": "3.7.0",
   "private": true,
   "description": "Hybrid media tools with secure direct downloads, video thumbnail preview and creator media",
   "main": "server.js",
