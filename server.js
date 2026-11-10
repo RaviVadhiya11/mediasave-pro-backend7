@@ -382,14 +382,17 @@ app.post('/api/resolve', (req, res) => {
     return res.status(400).json({ error: 'Enter a valid URL.' });
   }
 
-  if (!['http:', 'https:'].includes(url.protocol)) {
-    return res.status(400).json({ error: 'Only HTTP and HTTPS URLs are accepted.' });
+  if (url.protocol !== 'https:') {
+    return res.status(400).json({ error: 'Only public HTTPS direct media URLs are accepted.' });
   }
   if (url.username || url.password) {
     return res.status(400).json({ error: 'URLs containing embedded usernames or passwords are not accepted.' });
   }
+  if ((url.port && url.port !== '443') || net.isIP(url.hostname)) {
+    return res.status(400).json({ error: 'Use a public media hostname on standard HTTPS port 443.' });
+  }
 
-  const host = url.hostname.toLowerCase();
+  const host = url.hostname.toLowerCase().replace(/\.$/, '');
   const isHost = domain => host === domain || host.endsWith('.' + domain);
   let platform = null;
 
