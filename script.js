@@ -297,14 +297,7 @@
           output.textContent = 'DIRECT MEDIA FILE VERIFIED\\n' +
             (response.data.filename || 'Media file') +
             '\\nTap “Download file” below to save it to your device.';
-        if (response.ok && response.data.status === 'platform-guide') {
-          output.textContent = (response.data.platformName || 'Social platform') +
-            ' LINK DETECTED\\nThis is a post page, not a direct media file. Follow the official save instructions below.';
-        } else {
-          output.textContent = response.data.message || 'Link checked.';
-        }
 
-        if (response.ok && response.data.status === 'validated' && response.data.url) {
           const actionBox = document.createElement('div');
           actionBox.id = 'direct-link-action';
           actionBox.className = 'direct-link-action';
@@ -340,10 +333,13 @@
           actionBox.appendChild(openLink);
 
           const note = document.createElement('p');
-          note.textContent = 'Downloads direct HTTPS media files up to 100 MB. The source must permit access and return the file without redirects. This tool does not download social-media post pages.';
+          note.textContent = 'Downloads direct HTTPS media files up to 100 MB. The source must permit access and return the file without redirects. Social-media post pages are not downloadable through this tool.';
           actionBox.appendChild(note);
           result.appendChild(actionBox);
         } else if (response.data.status === 'platform-guide') {
+          output.textContent = (response.data.platformName || 'Social platform') +
+            ' LINK DETECTED\\nThis is a post page, not a direct media file. Follow the official save instructions below.';
+
           const guideBox = document.createElement('div');
           guideBox.id = 'direct-link-action';
           guideBox.className = 'platform-result-guide';
@@ -382,6 +378,8 @@
           addText(guideBox, 'p', 'platform-result-note', response.data.note || 'Only save content you own or have permission to use.');
           result.appendChild(guideBox);
           recordHistory('Platform guide', response.data.platformName || response.data.platform || 'Social link checked');
+        } else {
+          output.textContent = response.data.message || 'Link checked.';
         }
       } catch (error) {
         output.textContent = error.message;
