@@ -216,6 +216,10 @@ function safeDownloadName(value, extension) {
 }
 
 app.post('/api/download', downloadLimiter, async (req, res) => {
+  const requestOrigin = req.get('Origin');
+  if (requestOrigin && !allowedOrigins.has(requestOrigin)) {
+    return res.status(403).json({ error: 'This download endpoint can only be used from the MediaSave Pro website.' });
+  }
   const raw = String(req.body?.url || '').trim();
   let target;
   try {
