@@ -146,7 +146,7 @@ app.post('/api/resolve', (req, res) => {
   }
 
   const host = url.hostname.toLowerCase();
-  const social = /(^|\\.)(instagram\\.com|youtube\\.com|youtu\\.be|facebook\\.com|fb\\.watch)$/i.test(host);
+  const social = /(^|\.)(instagram\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch)$/i.test(host);
   if (social) {
     return res.status(422).json({
       error: 'This is a social-media post URL, not a direct media file.',
