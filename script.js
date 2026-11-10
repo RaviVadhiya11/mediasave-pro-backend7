@@ -110,7 +110,7 @@
 
     if (!videoExtensions.has(extension)) return;
 
-    const previewStatus = addText(card, 'p', 'direct-preview-status', 'Preparing video thumbnail…');
+    const previewStatus = addText(card, 'p', 'direct-preview-status', 'Loading video and generating thumbnail…');
     const thumbnail = document.createElement('img');
     thumbnail.className = 'direct-preview-image';
     thumbnail.alt = 'Video thumbnail for ' + (filename || 'media file');
@@ -120,7 +120,7 @@
     const video = document.createElement('video');
     video.className = 'direct-preview-player';
     video.controls = true;
-    video.preload = 'metadata';
+    video.preload = 'auto';
     video.playsInline = true;
     video.muted = true;
     video.crossOrigin = 'anonymous';
@@ -175,7 +175,7 @@
     video.addEventListener('loadeddata', captureThumbnail, { once: true });
     video.addEventListener('seeked', captureThumbnail, { once: true });
     video.addEventListener('error', () => {
-      showFallback('Thumbnail preview is unavailable. The source may block video preview or range requests.');
+      showFallback('Video preview could not load. Check that the source is a direct MP4/WebM file and allows server requests.');
     }, { once: true });
 
     playButton.addEventListener('click', () => {
@@ -373,7 +373,7 @@
   const sampleUrlButton = $('sample-url');
   if (sampleUrlButton && urlInput) {
     sampleUrlButton.addEventListener('click', () => {
-      urlInput.value = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
+      urlInput.value = 'https://pnb-freetoolsforweb.s3.us-east-2.amazonaws.com/samples/videos/mp4/sample-video-640x360-2mb.mp4';
       urlInput.focus();
       result.hidden = true;
     });
