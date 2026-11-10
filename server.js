@@ -57,8 +57,14 @@ app.get('/api/providers', (_req, res) => {
     providers: [
       {
         id: 'instagram',
-        status: process.env.INSTAGRAM_ACCESS_TOKEN ? 'configured' : 'not-configured',
-        method: 'official-instagram-login',
+        status: !process.env.INSTAGRAM_ACCESS_TOKEN
+          ? 'not-configured'
+          : ((process.env.INSTAGRAM_API_MODE || 'unified') === 'unified' && !process.env.INSTAGRAM_USER_ID)
+            ? 'needs-account-id'
+            : 'configured',
+        method: (process.env.INSTAGRAM_API_MODE || 'unified') === 'unified'
+          ? 'meta-unified-login-system-user-token'
+          : 'instagram-login-user-token',
         endpoint: '/api/instagram/media'
       },
       { id: 'youtube', status: 'not-configured', method: 'official-authorized-integration-only' },
