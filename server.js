@@ -2,6 +2,9 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const dns = require('node:dns').promises;
+const https = require('node:https');
+const net = require('node:net');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,6 +45,8 @@ app.options('*', cors({
 }));
 
 app.use(express.json({ limit: '20kb' }));
+app.use(express.urlencoded({ extended: false, limit: '10kb' }));
+const downloadLimiter = rateLimit({ windowMs: 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Download limit reached. Please wait one minute and try again.' } });
 app.use('/api/', rateLimit({
   windowMs: 60 * 1000,
   limit: 60,
@@ -50,7 +55,7 @@ app.use('/api/', rateLimit({
 }));
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'MediaSave Pro API', version: '3.4.0' });
+  res.json({ status: 'ok', service: 'MediaSave Pro API', version: '3.5.0' });
 });
 
 app.get('/api/providers', (_req, res) => {
@@ -173,6 +178,194 @@ app.get('/api/instagram/media', async (req, res) => {
       error: 'Could not contact the Meta Graph API. Please retry later.'
     });
   }
+});
+
+
+const MEDIA_MAX_BYTES = 100 * 1024 * 1024; // 100 MB per request
+const MEDIA_EXTENSIONS = new Set([
+  'mp4','m4v','webm','mov','avi','mkv',
+  'mp3','m4a','wav','ogg','opus',
+  'jpg','jpeg','png','gif','webp','avif'
+]);
+
+function isPublicIPv4(address) {
+  if (net.isIP(address) !== 4) return false;
+  const parts = address.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(n => !Number.isInteger(n) || n < 0 || n > 255)) return false;
+  const [a,b,c] = parts;
+  if (a === 0 || a === 10 || a === 127 || a >= 224) return false;
+  if (a === 100 && b >= 64 && b <= 127) return false;
+  if (a === 169 && b === 254) return false;
+  if (a === 172 && b >= 16 && b <= 31) return false;
+  if (a === 192 && (b === 168 || (b === 0 && c === 0) || (b === 0 && c === 2))) return false;
+  if (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) return false;
+  if (a === 203 && b === 0 && c === 113) return false;
+  if (a === 255 && b === 255 && c === 255) return false;
+  return true;
+}
+
+function safeDownloadName(value, extension) {
+  const cleaned = String(value || 'media')
+    .replace(/[\\/\\r\\n\\0<>:"|?*]/g, '_')
+    .replace(/[. ]+$/g, '')
+    .trim()
+    .slice(0, 120) || 'media';
+  const ext = String(extension || 'bin').toLowerCase();
+  return cleaned.toLowerCase().endsWith('.' + ext) ? cleaned : cleaned + '.' + ext;
+}
+
+app.post('/api/download', downloadLimiter, async (req, res) => {
+  const raw = String(req.body?.url || '').trim();
+  let target;
+  try {
+    target = new URL(raw);
+  } catch {
+    return res.status(400).json({ error: 'Enter a valid direct media-file URL.' });
+  }
+
+  if (target.protocol !== 'https:' || target.username || target.password) {
+    return res.status(400).json({ error: 'Only public HTTPS media-file URLs without embedded credentials are accepted.' });
+  }
+  if (target.port && target.port !== '443') {
+    return res.status(400).json({ error: 'Only standard HTTPS port 443 is supported.' });
+  }
+  if (net.isIP(target.hostname)) {
+    return res.status(400).json({ error: 'IP-address URLs are not accepted. Use the original public HTTPS media hostname.' });
+  }
+
+  const hostname = target.hostname.toLowerCase().replace(/\\.$/, '');
+  const isPlatformHost = hostname === 'instagram.com' || hostname.endsWith('.instagram.com') ||
+    hostname === 'youtube.com' || hostname.endsWith('.youtube.com') || hostname === 'youtu.be' ||
+    hostname === 'facebook.com' || hostname.endsWith('.facebook.com') || hostname === 'fb.watch' ||
+    hostname === 'snapchat.com' || hostname.endsWith('.snapchat.com');
+  if (isPlatformHost) {
+    return res.status(422).json({
+      error: 'Social-media post pages cannot be downloaded by this direct-file tool.',
+      guidance: 'Use the platform’s authorized download/export option or supply a direct media-file URL that you own or have permission to save.'
+    });
+  }
+
+  let pathname;
+  try {
+    pathname = decodeURIComponent(target.pathname);
+  } catch {
+    return res.status(400).json({ error: 'The media URL path is malformed.' });
+  }
+  const match = pathname.match(/\\.([a-z0-9]{2,5})$/i);
+  const extension = match ? match[1].toLowerCase() : '';
+  if (!MEDIA_EXTENSIONS.has(extension)) {
+    return res.status(422).json({
+      error: 'The URL must point directly to a supported media file.',
+      supportedTypes: Array.from(MEDIA_EXTENSIONS)
+    });
+  }
+
+  let addresses;
+  try {
+    addresses = await dns.lookup(hostname, { all: true, verbatim: true, family: 4 });
+  } catch (_error) {
+    return res.status(502).json({ error: 'The media host could not be resolved.' });
+  }
+  const publicAddresses = addresses.filter(item => isPublicIPv4(item.address));
+  if (!publicAddresses.length || publicAddresses.length !== addresses.length) {
+    return res.status(400).json({ error: 'This media host does not resolve exclusively to public IPv4 addresses.' });
+  }
+
+  // Pin the connection to the verified DNS result to reduce DNS-rebinding/SSRF risk.
+  const pinnedAddress = publicAddresses[0].address;
+  const requestOptions = {
+    protocol: 'https:',
+    hostname,
+    port: 443,
+    method: 'GET',
+    path: target.pathname + target.search,
+    servername: hostname,
+    timeout: 30000,
+    lookup: (_host, _options, callback) => callback(null, pinnedAddress, 4),
+    headers: {
+      'User-Agent': 'MediaSavePro/3.5 (+direct-media-download)',
+      'Accept': 'video/*,audio/*,image/*,application/octet-stream;q=0.9,*/*;q=0.1'
+    }
+  };
+
+  const upstreamRequest = https.request(requestOptions, upstream => {
+    if (upstream.statusCode >= 300 && upstream.statusCode < 400) {
+      upstream.resume();
+      return res.status(422).json({
+        error: 'The source redirected this request. Redirected media URLs are not supported for safety.',
+        guidance: 'Use the final direct HTTPS media-file URL from a source that permits downloads.'
+      });
+    }
+    if (upstream.statusCode < 200 || upstream.statusCode >= 300) {
+      upstream.resume();
+      return res.status(502).json({
+        error: 'The source host did not provide the media file.',
+        sourceStatus: upstream.statusCode
+      });
+    }
+
+    const contentType = String(upstream.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    const allowedMime = contentType.startsWith('video/') ||
+      contentType.startsWith('audio/') ||
+      contentType.startsWith('image/') ||
+      contentType === 'application/octet-stream' ||
+      contentType === 'binary/octet-stream' ||
+      contentType === 'application/mp4';
+    if (!allowedMime) {
+      upstream.resume();
+      return res.status(415).json({
+        error: 'The source did not return a recognized media file.',
+        receivedContentType: contentType || 'unknown'
+      });
+    }
+
+    const declaredLength = Number(upstream.headers['content-length'] || 0);
+    if (declaredLength > MEDIA_MAX_BYTES) {
+      upstream.resume();
+      return res.status(413).json({ error: 'This file exceeds the 100 MB download limit.' });
+    }
+
+    const sourceName = pathname.split('/').pop() || 'media';
+    const filename = safeDownloadName(sourceName, extension);
+    const asciiFallback = filename.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_');
+    res.status(200);
+    res.setHeader('Content-Type', contentType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Accept-Ranges', 'none');
+    if (declaredLength > 0) res.setHeader('Content-Length', String(declaredLength));
+
+    let total = 0;
+    upstream.on('data', chunk => {
+      total += chunk.length;
+      if (total > MEDIA_MAX_BYTES) {
+        upstream.destroy();
+        if (!res.destroyed) res.destroy(new Error('Download exceeded 100 MB limit.'));
+      }
+    });
+    upstream.on('error', () => {
+      if (!res.headersSent) res.status(502).json({ error: 'The source media stream failed.' });
+      else if (!res.destroyed) res.destroy();
+    });
+    res.on('close', () => {
+      if (!res.writableEnded) upstream.destroy();
+    });
+    upstream.pipe(res);
+  });
+
+  upstreamRequest.on('timeout', () => upstreamRequest.destroy(new Error('Source request timed out.')));
+  upstreamRequest.on('error', error => {
+    if (!res.headersSent && !res.destroyed) {
+      res.status(502).json({
+        error: 'Could not download the file from the source host.',
+        details: error.code === 'ETIMEDOUT' ? 'Source request timed out.' : 'The source host rejected or closed the connection.'
+      });
+    } else if (!res.destroyed) {
+      res.destroy();
+    }
+  });
+  upstreamRequest.end();
 });
 
 app.post('/api/resolve', (req, res) => {
