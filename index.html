@@ -3,6 +3,9 @@
 <section class="panel ig-library">
   <div class="panel-head"><h2><small>02</small> My Instagram media</h2><label>AUTHORIZED ACCOUNT ONLY</label></div>
   <p class="ig-intro">Load posts published by the Instagram Professional account connected to your Meta app. The access token stays on the server.</p>
+  <label class="field-label" for="ig-access-key">PRIVATE ACCESS KEY</label>
+  <div class="ig-key-wrap"><input id="ig-access-key" type="password" autocomplete="off" placeholder="Enter your private MediaSave access key" aria-describedby="ig-key-help"></div>
+  <p class="ig-key-help" id="ig-key-help">This key is checked by the server and is not saved in this browser.</p>
   <button class="submit" id="load-instagram" type="button">Load my Instagram media <b>→</b></button>
   <div id="ig-message" class="ig-message" aria-live="polite">Your connected account's media will appear here.</div>
   <div id="ig-grid" class="ig-grid" hidden></div>
