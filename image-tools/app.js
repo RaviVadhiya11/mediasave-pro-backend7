@@ -21,7 +21,7 @@ if(tool==='pixelate-image')html=field('Pixel block size',number('block-size',12,
 if(tool==='color-palette')html='<p class="option-note">We sample image pixels locally and group similar RGB colours. Press Extract colours after choosing a file.</p><div id="palette-results" class="palette-results"></div>';
 if(tool==='metadata-cleaner')html='<div id="metadata-info" class="metadata-info">Select an image to see its basic file details.</div>'+field('Clean copy format',select('format',formats))+'<p class="option-note">Canvas re-encoding removes the original embedded metadata from the exported copy. Basic file details only; this is not a full EXIF/GPS viewer.</p>';
 if(tool==='ai-background-remover')html=field('Background','<select id="bg-mode"><option value="transparent">Transparent PNG</option><option value="white">White background</option><option value="custom">Custom colour</option></select>')+field('Custom background colour','<input id="bg-color" type="color" value="#ffffff">')+'<p class="option-note">AI portrait matting runs on your device after the model downloads. Best for people/portrait photos; complex objects may need manual cleanup.</p>';
-if(tool==='ai-upscaler')html=field('AI upscale model','<select id="upscale-model"><option value="swin2sr-x4">Swin2SR Real-World · 4×</option></select>')+field('Output format',select('format',formats))+'<p class="option-note">First use downloads an AI model to your browser. For mobile memory safety, large input images are reduced to a maximum 768 px long edge before 4× enhancement. Output is up to 3072 px on the long edge.</p>';
+if(tool==='ai-upscaler')html=field('AI upscale model','<select id="upscale-model"><option value="swin2sr-x4">Swin2SR Real-World · 4×</option></select>')+field('Output format',select('format',formats))+'<p class="option-note">First use downloads about 23 MB of quantized Swin2SR model weights to your browser. For mobile memory safety, large input images are reduced to a maximum 640 px long edge before 4× enhancement. Output is up to 2560 px on the long edge.</p>';
 options.innerHTML=html;
 ['quality','opacity','brightness','contrast','saturation'].forEach(id=>$(id)?.addEventListener('input',()=>{const map={quality:'quality-value',opacity:'opacity-value',brightness:'brightness-value',contrast:'contrast-value',saturation:'saturation-value'};$(map[id]).textContent=$(id).value+'%'}));
 $('reset-filters')?.addEventListener('click',()=>{[['brightness',100],['contrast',100],['saturation',100]].forEach(([id,v])=>{$(id).value=v;$(id+'-value').textContent=v+'%' });$('tone').value='none'});
@@ -133,17 +133,13 @@ async function processBackgroundRemoval(file){
  const maskCanvas=rawImageToCanvas(raw,'Background model');
  const w=prepared.width,h=prepared.height;
  const maskCtx=maskCanvas.getContext('2d',{willReadFrequently:true});
- const alphaSource=maskCtx.getImageData(0,0,maskCanvas.width,maskCanvas.height);
+ const maskSized=makeCanvas(w,h),maskSizedCtx=maskSized.getContext('2d',{willReadFrequently:true});
+ maskSizedCtx.drawImage(maskCanvas,0,0,w,h);
+ const maskData=maskSizedCtx.getImageData(0,0,w,h).data;
  const result=makeCanvas(w,h),ctx=result.getContext('2d',{willReadFrequently:true});
  ctx.drawImage(prepared,0,0,w,h);
  const original=ctx.getImageData(0,0,w,h);
- const maskData=alphaSource.data;
- for(let y=0;y<h;y++){
-  for(let x=0;x<w;x++){
-   const mi=(Math.min(maskCanvas.height-1,Math.floor(y*maskCanvas.height/h))*maskCanvas.width+Math.min(maskCanvas.width-1,Math.floor(x*maskCanvas.width/w)))*4;
-   original.data[(y*w+x)*4+3]=maskData[mi+3];
-  }
- }
+ for(let i=0;i<original.data.length;i+=4)original.data[i+3]=maskData[i+3];
  ctx.putImageData(original,0,0);
  const mode=$('bg-mode').value;
  let finalCanvas=result,type='image/png';
