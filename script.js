@@ -432,12 +432,12 @@
 
         if (!response.ok) {
           output.textContent = (response.data.error || 'The link could not be processed.') +
-            (response.data.guidance ? '\\n' + response.data.guidance : '') +
-            '\\nHTTP status: ' + response.status;
+            (response.data.guidance ? '\n' + response.data.guidance : '') +
+            '\nHTTP status: ' + response.status;
         } else if (response.data.status === 'validated' && response.data.url) {
-          output.textContent = 'DIRECT MEDIA FILE VERIFIED\\n' +
+          output.textContent = 'DIRECT MEDIA FILE VERIFIED\n' +
             (response.data.filename || 'Media file') +
-            '\\nTap “Download file” below to save it to your device.';
+            '\nTap “Download file” below to save it to your device.';
 
           const actionBox = document.createElement('div');
           actionBox.id = 'direct-link-action';
@@ -481,7 +481,7 @@
           result.appendChild(actionBox);
         } else if (response.data.status === 'platform-guide') {
           output.textContent = (response.data.platformName || 'Social platform') +
-            ' LINK DETECTED\\nThis is a post page, not a direct media file. Follow the official save instructions below.';
+            ' LINK DETECTED\nThis is a post page, not a direct media file. Follow the official save instructions below.';
 
           const guideBox = document.createElement('div');
           guideBox.id = 'direct-link-action';
