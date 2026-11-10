@@ -98,34 +98,60 @@
       const card = document.createElement('article');
       card.className = 'ig-item';
 
-      const previewUrl = safeHttpUrl(item.thumbnail_url || item.media_url);
-      if (previewUrl) {
-        const image = document.createElement('img');
-        image.src = previewUrl;
-        image.alt = item.media_type || 'Instagram media';
-        image.loading = 'lazy';
-        image.referrerPolicy = 'no-referrer';
-        card.appendChild(image);
+      const mediaUrl = safeHttpUrl(item.media_url);
+      const thumbnailUrl = safeHttpUrl(item.thumbnail_url);
+      const mediaType = String(item.media_type || 'MEDIA').toUpperCase();
+
+      if (mediaType === 'VIDEO' && mediaUrl) {
+        const video = document.createElement('video');
+        video.className = 'ig-preview-video';
+        video.controls = true;
+        video.preload = 'metadata';
+        video.playsInline = true;
+        if (thumbnailUrl) video.poster = thumbnailUrl;
+        video.src = mediaUrl;
+        card.appendChild(video);
+      } else {
+        const previewUrl = mediaType === 'VIDEO' ? thumbnailUrl : (mediaUrl || thumbnailUrl);
+        if (previewUrl) {
+          const image = document.createElement('img');
+          image.src = previewUrl;
+          image.alt = mediaType + ' Instagram media';
+          image.loading = 'lazy';
+          image.referrerPolicy = 'no-referrer';
+          card.appendChild(image);
+        } else {
+          const placeholder = document.createElement('div');
+          placeholder.className = 'ig-no-preview';
+          placeholder.textContent = mediaType === 'VIDEO'
+            ? 'Video preview unavailable'
+            : 'Preview unavailable';
+          card.appendChild(placeholder);
+        }
       }
 
       const body = document.createElement('div');
       body.className = 'ig-item-body';
-      addText(body, 'div', 'ig-item-type', item.media_type || 'MEDIA');
+      addText(body, 'div', 'ig-item-type', mediaType === 'VIDEO' ? 'VIDEO / REEL' : mediaType);
       addText(body, 'p', 'ig-item-caption', item.caption || 'No caption');
 
       const links = document.createElement('div');
       links.className = 'ig-item-links';
-      const mediaUrl = safeHttpUrl(item.media_url);
-      const permalink = safeHttpUrl(item.permalink);
 
       if (mediaUrl) {
-        const openFile = document.createElement('a');
-        openFile.href = mediaUrl;
-        openFile.target = '_blank';
-        openFile.rel = 'noopener noreferrer';
-        openFile.textContent = 'Open media file';
-        links.appendChild(openFile);
+        const download = document.createElement('a');
+        download.href = mediaUrl;
+        download.target = '_blank';
+        download.rel = 'noopener noreferrer';
+        download.textContent = 'Download / Open file';
+        download.title = 'Open the media file; if it plays in the browser, use the browser menu to download it.';
+        links.appendChild(download);
+      } else {
+        addText(body, 'p', 'ig-item-unavailable',
+          'Instagram did not provide a downloadable media URL for this item. Open the post in Instagram or export your original from Accounts Center.');
       }
+
+      const permalink = safeHttpUrl(item.permalink);
       if (permalink) {
         const openPost = document.createElement('a');
         openPost.href = permalink;
@@ -134,13 +160,14 @@
         openPost.textContent = 'View Instagram post';
         links.appendChild(openPost);
       }
+
       if (links.childElementCount) body.appendChild(links);
       card.appendChild(body);
       instagramGrid.appendChild(card);
     }
 
     instagramGrid.hidden = false;
-    instagramMessage.textContent = 'Loaded ' + items.length + ' item(s) from your authorized Instagram account.';
+    instagramMessage.textContent = 'Loaded ' + items.length + ' item(s). Media file links are shown only when Instagram provides them.';
     instagramMessage.className = 'ig-message ig-success';
   }
 
