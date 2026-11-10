@@ -7,7 +7,7 @@ Node.js API backend for the MediaSave Pro GitHub Pages frontend.
 - Runtime: Node
 - Build command: `npm install`
 - Start command: `npm start`
-- Set `ALLOWED_ORIGINS=https://vivadhiya11.github.io` in Render Environment.
+- Set `ALLOWED_ORIGINS=https://ravivadhiya11.github.io` in Render Environment.
 
 ### Instagram Unified Login setup
 
@@ -41,6 +41,6 @@ The frontend files (`index.html`, `style.css`, `script.js`, `app-config.js`) are
 
 If the browser reports `Failed to fetch`, check:
 1. Render service is Live and has deployed the latest commit.
-2. `ALLOWED_ORIGINS` contains exactly `https://vivadhiya11.github.io` (origin only, no repository path).
+2. `ALLOWED_ORIGINS` contains exactly `https://ravivadhiya11.github.io` (origin only, no repository path).
 3. The site is opened over HTTPS.
 4. The browser can open `/api/health` and the page is not showing a stale cached script.
