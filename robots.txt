@@ -1,2 +1,3 @@
 User-agent: *
 Allow: /
+Sitemap: https://ravivadhiya11.github.io/mediasave-pro-backend7/sitemap.xml
