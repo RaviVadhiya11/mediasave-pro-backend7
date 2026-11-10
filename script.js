@@ -208,13 +208,24 @@
       links.className = 'ig-item-links';
 
       if (mediaUrl) {
-        const download = document.createElement('a');
-        download.href = mediaUrl;
-        download.target = '_blank';
-        download.rel = 'noopener noreferrer';
-        download.textContent = 'Download / Open file';
-        download.title = 'Open the media file; if it plays in the browser, use the browser menu to download it.';
-        links.appendChild(download);
+        const downloadForm = document.createElement('form');
+        downloadForm.method = 'POST';
+        downloadForm.action = base + '/api/download';
+        downloadForm.target = '_blank';
+        downloadForm.className = 'ig-download-form';
+
+        const mediaField = document.createElement('input');
+        mediaField.type = 'hidden';
+        mediaField.name = 'url';
+        mediaField.value = mediaUrl;
+        downloadForm.appendChild(mediaField);
+
+        const download = document.createElement('button');
+        download.type = 'submit';
+        download.textContent = 'Download file ↓';
+        download.className = 'ig-download-button';
+        downloadForm.appendChild(download);
+        links.appendChild(downloadForm);
       } else {
         addText(body, 'p', 'ig-item-unavailable',
           'Instagram did not provide a downloadable media URL for this item. Open the post in Instagram or export your original from Accounts Center.');
