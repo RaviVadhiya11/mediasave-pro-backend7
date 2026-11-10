@@ -16,7 +16,7 @@ const configuredOrigins = (process.env.ALLOWED_ORIGINS || '')
   });
 
 const allowedOrigins = new Set([
-  'https://vivadhiya11.github.io',
+  'https://ravivadhiya11.github.io',
   'http://localhost:3000',
   ...configuredOrigins
 ]);
