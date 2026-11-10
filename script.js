@@ -77,6 +77,121 @@
     }
   }
 
+  function addDirectMediaPreview(parent, mediaUrl, filename) {
+    const safeUrl = safeHttpUrl(mediaUrl);
+    if (!safeUrl) return;
+
+    const extension = String(filename || safeUrl.split('?')[0].split('/').pop() || '')
+      .split('.').pop().toLowerCase();
+    const videoExtensions = new Set(['mp4', 'm4v', 'webm', 'mov', 'avi', 'mkv']);
+    const imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif']);
+
+    const card = document.createElement('div');
+    card.className = 'direct-media-preview';
+
+    addText(card, 'div', 'direct-preview-label',
+      videoExtensions.has(extension) ? 'VIDEO THUMBNAIL PREVIEW' :
+      imageExtensions.has(extension) ? 'IMAGE PREVIEW' : 'MEDIA PREVIEW');
+
+    if (imageExtensions.has(extension)) {
+      const image = document.createElement('img');
+      image.className = 'direct-preview-image';
+      image.alt = 'Preview of ' + (filename || 'media file');
+      image.loading = 'lazy';
+      image.referrerPolicy = 'no-referrer';
+      image.src = safeUrl;
+      card.appendChild(image);
+      parent.appendChild(card);
+      image.addEventListener('error', () => {
+        card.textContent = 'Image preview is not available from this source.';
+      }, { once: true });
+      return;
+    }
+
+    if (!videoExtensions.has(extension)) return;
+
+    const previewStatus = addText(card, 'p', 'direct-preview-status', 'Preparing video thumbnail…');
+    const thumbnail = document.createElement('img');
+    thumbnail.className = 'direct-preview-image';
+    thumbnail.alt = 'Video thumbnail for ' + (filename || 'media file');
+    thumbnail.hidden = true;
+    card.appendChild(thumbnail);
+
+    const video = document.createElement('video');
+    video.className = 'direct-preview-player';
+    video.controls = true;
+    video.preload = 'metadata';
+    video.playsInline = true;
+    video.muted = true;
+    video.crossOrigin = 'anonymous';
+    video.hidden = true;
+    card.appendChild(video);
+
+    const playButton = document.createElement('button');
+    playButton.type = 'button';
+    playButton.className = 'direct-preview-play';
+    playButton.textContent = 'Play video preview';
+    playButton.hidden = true;
+    card.appendChild(playButton);
+
+    let captured = false;
+    const showFallback = message => {
+      previewStatus.textContent = message;
+      video.hidden = false;
+      playButton.hidden = true;
+    };
+
+    const captureThumbnail = () => {
+      if (captured || !video.videoWidth || !video.videoHeight) return;
+      try {
+        const canvas = document.createElement('canvas');
+        const width = Math.min(video.videoWidth, 960);
+        const height = Math.max(1, Math.round(width * video.videoHeight / video.videoWidth));
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Canvas is not available');
+        context.drawImage(video, 0, 0, width, height);
+        thumbnail.src = canvas.toDataURL('image/jpeg', 0.84);
+        thumbnail.hidden = false;
+        video.hidden = true;
+        playButton.hidden = false;
+        previewStatus.textContent = 'Thumbnail ready';
+        captured = true;
+      } catch (_error) {
+        showFallback('Thumbnail capture is blocked by the source. Use the video preview below.');
+      }
+    };
+
+    video.addEventListener('loadedmetadata', () => {
+      if (Number.isFinite(video.duration) && video.duration > 0.1) {
+        try {
+          video.currentTime = Math.min(1, video.duration * 0.1);
+        } catch (_error) {
+          // loadeddata below will attempt a frame capture instead.
+        }
+      }
+    }, { once: true });
+    video.addEventListener('loadeddata', captureThumbnail, { once: true });
+    video.addEventListener('seeked', captureThumbnail, { once: true });
+    video.addEventListener('error', () => {
+      showFallback('Thumbnail preview is unavailable. The source may block video preview or range requests.');
+    }, { once: true });
+
+    playButton.addEventListener('click', () => {
+      thumbnail.hidden = true;
+      playButton.hidden = true;
+      video.hidden = false;
+      video.controls = true;
+      video.play().catch(() => {});
+    });
+
+    const previewUrl = base + '/api/preview?url=' + encodeURIComponent(safeUrl);
+    video.src = previewUrl;
+    video.load();
+    parent.appendChild(card);
+  }
+
   const themeToggle = $('theme-toggle');
   const historyList = $('history-list');
   const clearHistoryButton = $('clear-history');
@@ -310,6 +425,8 @@
           const actionBox = document.createElement('div');
           actionBox.id = 'direct-link-action';
           actionBox.className = 'direct-link-action';
+
+          addDirectMediaPreview(actionBox, response.data.url, response.data.filename);
 
           const downloadForm = document.createElement('form');
           downloadForm.method = 'POST';
