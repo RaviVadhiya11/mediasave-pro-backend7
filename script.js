@@ -14,6 +14,7 @@
   const result = $('result');
   const output = $('output');
   const instagramButton = $('load-instagram');
+  const instagramAccessKey = $('ig-access-key');
   const instagramMessage = $('ig-message');
   const instagramGrid = $('ig-grid');
 
@@ -193,7 +194,13 @@
       instagramGrid.hidden = true;
 
       try {
-        const response = await api('/api/instagram/media?limit=15');
+        const privateKey = instagramAccessKey ? instagramAccessKey.value.trim() : '';
+        if (!privateKey) {
+          throw new Error('Enter your private MediaSave access key first.');
+        }
+        const response = await api('/api/instagram/media?limit=15', {
+          headers: { Authorization: 'Bearer ' + privateKey }
+        });
         if (!response.ok) {
           const message = response.data.details || response.data.error || 'Instagram request failed.';
           throw new Error(message + ' (HTTP ' + response.status + ')');
