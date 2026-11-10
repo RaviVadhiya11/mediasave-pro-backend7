@@ -1,4 +1,2 @@
-// MediaSave Pro V3.8 backend configuration
-window.MEDIASAVE_CONFIG = {
-  API_BASE_URL: "https://mediasave-pro-backend7.onrender.com"
-};
+// MediaSave Pro — fresh FastVideoSave-inspired front end
+window.MEDIASAVE_CONFIG = { API_BASE_URL: "https://mediasave-pro-backend7.onrender.com" };
