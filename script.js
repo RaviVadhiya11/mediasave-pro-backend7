@@ -1,848 +1,284 @@
 (() => {
-  'use strict';
-
-  const config = window.MEDIASAVE_CONFIG || {};
-  const base = String(config.API_BASE_URL || '').replace(/\/+$/, '');
   const $ = id => document.getElementById(id);
+  const config = window.MEDIASAVE_CONFIG || {};
+  const API = String(config.API_BASE_URL || '').replace(/\/$/, '');
+  const form = $('download-form');
+  const input = $('media-url');
+  const checkButton = $('check-btn');
+  const resultPanel = $('result-panel');
+  const resultContent = $('result-content');
+  const resultTitle = $('result-title');
+  const resultSubtitle = $('result-subtitle');
+  const resultIcon = $('result-icon');
+  const inputHelp = $('input-help');
+  const HISTORY_KEY = 'mediasave-pro-simple-history-v1';
 
-  const status = $('api-status');
-  const dot = $('dot');
-  const form = $('form');
-  const urlInput = $('url');
-  const clearButton = $('clear');
-  const submitButton = $('submit');
-  const result = $('result');
-  const output = $('output');
-  const instagramButton = $('load-instagram');
-  const instagramAccessKey = $('ig-access-key');
-  const instagramMessage = $('ig-message');
-  const instagramGrid = $('ig-grid');
+  const platformHints = {
+    instagram: 'Paste a direct media file URL, or an Instagram post link to see official save options.',
+    youtube: 'Paste a direct media file URL, or a YouTube video/Short link to see official save options.',
+    facebook: 'Paste a direct media file URL, or a Facebook video/Reel link to see official save options.',
+    snapchat: 'Paste a direct media file URL, or a Snapchat Spotlight link to see official save options.'
+  };
+
+  function setStatus(ok, text) {
+    const dot = $('api-dot');
+    const label = $('api-status');
+    if (dot) dot.style.background = ok ? '#69c99c' : '#e5b65d';
+    if (label) label.textContent = text;
+  }
 
   async function api(path, options = {}) {
+    if (!API) throw new Error('The API address is not configured.');
     let response;
     try {
-      response = await fetch(base + path, {
+      response = await fetch(API + path, {
         ...options,
-        headers: {
-          ...(options.headers || {}),
-          ...(options.body ? { 'Content-Type': 'application/json' } : {})
-        }
+        headers: { ...(options.headers || {}), ...(options.body ? { 'Content-Type': 'application/json' } : {}) }
       });
     } catch (error) {
-      const reason = error && error.message ? error.message : 'Network error';
-      throw new Error(
-        'Browser could not reach the API (' + reason + '). Check Render service status, CORS allowlist, and internet connection.'
-      );
+      throw new Error('Could not contact the download service. Please try again in a moment.');
     }
-
     const raw = await response.text();
-    let data;
-    try { data = raw ? JSON.parse(raw) : {}; }
-    catch { data = { message: raw || 'Empty response' }; }
-
+    let data = {};
+    try { data = raw ? JSON.parse(raw) : {}; } catch { data = { message: raw || 'Empty response' }; }
     return { ok: response.ok, status: response.status, data };
   }
 
-  function setApiStatus(isOnline, label) {
-    if (status) status.textContent = label;
-    if (dot) {
-      dot.style.background = isOnline ? '#45d49a' : '#f0b54a';
-      dot.style.boxShadow = isOnline ? '0 0 10px #45d49a' : '0 0 10px #f0b54a';
-    }
-  }
-
-  async function checkHealth() {
-    if (!base) {
-      setApiStatus(false, 'API URL MISSING');
-      return;
-    }
+  function safeUrl(value) {
     try {
-      const result = await api('/api/health');
-      if (!result.ok || result.data.status !== 'ok') {
-        setApiStatus(false, 'API ERROR');
-        return;
-      }
-      setApiStatus(true, 'ONLINE');
-    } catch (_error) {
-      setApiStatus(false, 'SLEEPING / CORS');
-    }
+      const u = new URL(value);
+      return u.protocol === 'https:' ? u.href : '';
+    } catch { return ''; }
   }
 
-  function safeHttpUrl(value) {
+  function showResult(title, subtitle, type = 'ok') {
+    resultPanel.hidden = false;
+    resultTitle.textContent = title;
+    resultSubtitle.textContent = subtitle || '';
+    resultIcon.textContent = type === 'error' ? '!' : type === 'guide' ? 'i' : '✓';
+    resultIcon.style.background = type === 'error' ? '#fff0e8' : type === 'guide' ? '#eaf2ff' : '#dff4e9';
+    resultIcon.style.color = type === 'error' ? '#bd5b2d' : type === 'guide' ? '#3564a5' : '#13856e';
+    resultContent.replaceChildren();
+  }
+
+  function addHistory(kind, title) {
     try {
-      const parsed = new URL(value);
-      return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.href : '';
-    } catch {
-      return '';
-    }
-  }
-
-  function addDirectMediaPreview(parent, mediaUrl, filename) {
-    const safeUrl = safeHttpUrl(mediaUrl);
-    if (!safeUrl) return;
-
-    const extension = String(filename || safeUrl.split('?')[0].split('/').pop() || '')
-      .split('.').pop().toLowerCase();
-    const videoExtensions = new Set(['mp4', 'm4v', 'webm', 'mov', 'avi', 'mkv']);
-    const imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif']);
-
-    const card = document.createElement('div');
-    card.className = 'direct-media-preview';
-
-    addText(card, 'div', 'direct-preview-label',
-      videoExtensions.has(extension) ? 'VIDEO THUMBNAIL PREVIEW' :
-      imageExtensions.has(extension) ? 'IMAGE PREVIEW' : 'MEDIA PREVIEW');
-
-    if (imageExtensions.has(extension)) {
-      const image = document.createElement('img');
-      image.className = 'direct-preview-image';
-      image.alt = 'Preview of ' + (filename || 'media file');
-      image.loading = 'lazy';
-      image.referrerPolicy = 'no-referrer';
-      image.src = safeUrl;
-      card.appendChild(image);
-      parent.appendChild(card);
-      image.addEventListener('error', () => {
-        card.textContent = 'Image preview is not available from this source.';
-      }, { once: true });
-      return;
-    }
-
-    if (!videoExtensions.has(extension)) return;
-
-    const previewStatus = addText(card, 'p', 'direct-preview-status', 'Loading video and generating thumbnail…');
-    const thumbnail = document.createElement('img');
-    thumbnail.className = 'direct-preview-image';
-    thumbnail.alt = 'Video thumbnail for ' + (filename || 'media file');
-    thumbnail.hidden = true;
-    card.appendChild(thumbnail);
-
-    const video = document.createElement('video');
-    video.className = 'direct-preview-player';
-    video.controls = true;
-    video.preload = 'auto';
-    video.playsInline = true;
-    video.muted = true;
-    video.crossOrigin = 'anonymous';
-    video.hidden = true;
-    card.appendChild(video);
-
-    const playButton = document.createElement('button');
-    playButton.type = 'button';
-    playButton.className = 'direct-preview-play';
-    playButton.textContent = 'Play video preview';
-    playButton.hidden = true;
-    card.appendChild(playButton);
-
-    let captured = false;
-    let directFallbackTried = false;
-    const showFallback = message => {
-      previewStatus.textContent = message;
-      video.hidden = false;
-      playButton.hidden = true;
-      video.controls = true;
-    };
-    const tryDirectBrowserPreview = () => {
-      if (directFallbackTried) {
-        showFallback('This source could not be previewed in this browser. You can still try Download file below.');
-        return;
-      }
-      directFallbackTried = true;
-      previewStatus.textContent = 'Server preview unavailable. Trying direct browser playback…';
-      video.removeAttribute('crossorigin');
-      video.src = safeUrl;
-      video.load();
-    };
-
-    const captureThumbnail = () => {
-      if (captured || !video.videoWidth || !video.videoHeight) return;
-      try {
-        const canvas = document.createElement('canvas');
-        const width = Math.min(video.videoWidth, 960);
-        const height = Math.max(1, Math.round(width * video.videoHeight / video.videoWidth));
-        canvas.width = width;
-        canvas.height = height;
-        const context = canvas.getContext('2d');
-        if (!context) throw new Error('Canvas is not available');
-        context.drawImage(video, 0, 0, width, height);
-        thumbnail.src = canvas.toDataURL('image/jpeg', 0.84);
-        thumbnail.hidden = false;
-        video.hidden = true;
-        playButton.hidden = false;
-        previewStatus.textContent = 'Thumbnail ready';
-        captured = true;
-      } catch (_error) {
-        showFallback('Thumbnail capture is blocked by the source. Use the video preview below.');
-      }
-    };
-
-    video.addEventListener('loadedmetadata', () => {
-      if (Number.isFinite(video.duration) && video.duration > 0.1) {
-        try {
-          video.currentTime = Math.min(1, video.duration * 0.1);
-        } catch (_error) {
-          // loadeddata below will attempt a frame capture instead.
-        }
-      }
-    }, { once: true });
-    video.addEventListener('loadeddata', captureThumbnail, { once: true });
-    video.addEventListener('seeked', captureThumbnail, { once: true });
-    video.addEventListener('error', () => {
-      if (!directFallbackTried) {
-        tryDirectBrowserPreview();
-      } else {
-        showFallback('This source could not be previewed in this browser. You can still try Download file below.');
-      }
-    });
-
-    playButton.addEventListener('click', () => {
-      thumbnail.hidden = true;
-      playButton.hidden = true;
-      video.hidden = false;
-      video.controls = true;
-      video.play().catch(() => {});
-    });
-
-    const previewUrl = base + '/api/preview?url=' + encodeURIComponent(safeUrl);
-    video.src = previewUrl;
-    video.load();
-    parent.appendChild(card);
-  }
-
-  const themeToggle = $('theme-toggle');
-  const historyList = $('history-list');
-  const clearHistoryButton = $('clear-history');
-  const HISTORY_KEY = 'mediasave-pro-history-v1';
-
-  function applyTheme(theme) {
-    document.body.classList.toggle('light-theme', theme === 'light');
-    if (themeToggle) themeToggle.textContent = theme === 'light' ? 'Dark mode' : 'Light mode';
-  }
-
-  function readHistory() {
-    try {
-      const value = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-      return Array.isArray(value) ? value : [];
-    } catch (_error) {
-      return [];
-    }
+      const list = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      list.unshift({ kind, title, time: Date.now() });
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 15)));
+      renderHistory();
+    } catch {}
   }
 
   function renderHistory() {
-    if (!historyList) return;
-    const entries = readHistory();
-    historyList.replaceChildren();
-    if (!entries.length) {
-      addText(historyList, 'p', 'history-empty', 'No recent activity yet.');
-      return;
+    const host = $('history-list');
+    if (!host) return;
+    host.replaceChildren();
+    let items = [];
+    try { items = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch {}
+    if (!Array.isArray(items) || !items.length) {
+      const p = document.createElement('p'); p.className = 'empty-history';
+      p.textContent = 'Your recent link checks and downloads will appear here on this device.';
+      host.appendChild(p); return;
     }
-    entries.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'history-row';
-      const details = document.createElement('div');
-      addText(details, 'strong', 'history-title', item.title || 'Media tool action');
-      addText(details, 'span', 'history-time', new Date(item.time).toLocaleString());
-      row.appendChild(details);
-      addText(row, 'span', 'history-kind', item.kind || 'Activity');
-      historyList.appendChild(row);
+    items.forEach(item => {
+      const row = document.createElement('div'); row.className = 'history-entry';
+      const left = document.createElement('div');
+      const title = document.createElement('b'); title.textContent = item.title || 'Media activity';
+      const time = document.createElement('small'); time.textContent = new Date(item.time).toLocaleString();
+      left.append(title, time);
+      const kind = document.createElement('span'); kind.className = 'history-kind'; kind.textContent = item.kind || 'CHECKED';
+      row.append(left, kind); host.appendChild(row);
     });
   }
 
-  function recordHistory(kind, title) {
-    try {
-      const entries = readHistory();
-      entries.unshift({ kind, title, time: Date.now() });
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, 30)));
-      renderHistory();
-    } catch (_error) {
-      // Local history is optional; tool actions still work when storage is unavailable.
-    }
-  }
-
-  if (themeToggle) {
-    let savedTheme = 'dark';
-    try { savedTheme = localStorage.getItem('mediasave-pro-theme') || 'dark'; } catch (_error) {}
-    applyTheme(savedTheme);
-    themeToggle.addEventListener('click', () => {
-      const nextTheme = document.body.classList.contains('light-theme') ? 'dark' : 'light';
-      applyTheme(nextTheme);
-      try { localStorage.setItem('mediasave-pro-theme', nextTheme); } catch (_error) {}
-    });
-  }
-
-  if (clearHistoryButton) {
-    clearHistoryButton.addEventListener('click', () => {
-      try { localStorage.removeItem(HISTORY_KEY); } catch (_error) {}
-      renderHistory();
-    });
-  }
-  renderHistory();
-
-  function addText(parent, tag, className, value) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    node.textContent = value || '';
-    parent.appendChild(node);
-    return node;
-  }
-
-  function appendInstagramDownload(parent, mediaUrl, label, historyTitle) {
-    const safeUrl = safeHttpUrl(mediaUrl);
-    if (!safeUrl) {
-      addText(parent, 'p', 'ig-item-unavailable', 'Meta did not provide a downloadable media file for this item.');
-      return;
-    }
+  function addDownloadForm(parent, url, filename) {
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = base + '/api/download';
+    form.action = API + '/api/download';
     form.target = '_blank';
-    form.className = 'ig-download-form';
-
     const field = document.createElement('input');
-    field.type = 'hidden';
-    field.name = 'url';
-    field.value = safeUrl;
-    form.appendChild(field);
-
+    field.type = 'hidden'; field.name = 'url'; field.value = url;
     const button = document.createElement('button');
-    button.type = 'submit';
-    button.textContent = label || 'Download file ↓';
-    button.className = 'ig-download-button';
-    form.appendChild(button);
-    form.addEventListener('submit', () => recordHistory('Instagram download started', historyTitle || 'Authorized media file'));
+    button.type = 'submit'; button.className = 'download-file-btn'; button.textContent = 'Download file ↓';
+    form.append(field, button);
+    form.addEventListener('submit', () => addHistory('DOWNLOAD', filename || 'Direct media file'));
     parent.appendChild(form);
   }
 
-  function renderInstagramMedia(items) {
-    instagramGrid.replaceChildren();
-    if (!Array.isArray(items) || items.length === 0) {
-      instagramGrid.hidden = true;
-      instagramMessage.textContent = 'No media items were returned for the connected account.';
-      instagramMessage.className = 'ig-message';
-      return;
+  function renderDirectFile(data) {
+    showResult('Direct media file verified', data.filename || 'Media file link is ready', 'ok');
+    const intro = document.createElement('p'); intro.className = 'result-message';
+    intro.textContent = 'This looks like a direct media-file URL. Use the download button below. The source host must allow access.';
+    resultContent.appendChild(intro);
+    const url = safeUrl(data.url);
+    if (!url) { intro.textContent = 'The source URL is not a secure HTTPS link.'; return; }
+
+    const extension = String(data.filename || url.split('?')[0].split('/').pop()).split('.').pop().toLowerCase();
+    if (['mp4','m4v','webm','mov'].includes(extension)) {
+      const box = document.createElement('div'); box.className = 'preview-box';
+      const video = document.createElement('video'); video.controls = true; video.playsInline = true; video.preload = 'metadata';
+      video.src = API + '/api/preview?url=' + encodeURIComponent(url);
+      video.addEventListener('error', () => {
+        box.querySelector('.preview-caption').textContent = 'Preview is unavailable from this host. You can still try the download button.';
+        video.removeAttribute('src'); video.src = url; video.load();
+      }, { once: true });
+      const caption = document.createElement('p'); caption.className = 'preview-caption'; caption.textContent = 'Preview of the original file (when the host permits playback).';
+      box.append(video, caption); resultContent.appendChild(box);
+    } else if (['jpg','jpeg','png','gif','webp','avif'].includes(extension)) {
+      const box = document.createElement('div'); box.className = 'preview-box';
+      const img = document.createElement('img'); img.src = url; img.alt = data.filename || 'Media preview'; img.loading = 'lazy';
+      box.appendChild(img); resultContent.appendChild(box);
     }
 
-    for (const item of items) {
-      const card = document.createElement('article');
-      card.className = 'ig-item';
-
-      const mediaUrl = safeHttpUrl(item.media_url);
-      const thumbnailUrl = safeHttpUrl(item.thumbnail_url);
-      const mediaType = String(item.media_type || 'MEDIA').toUpperCase();
-
-      if (mediaType === 'VIDEO' && mediaUrl) {
-        const video = document.createElement('video');
-        video.className = 'ig-preview-video';
-        video.controls = true;
-        video.preload = 'metadata';
-        video.playsInline = true;
-        if (thumbnailUrl) video.poster = thumbnailUrl;
-        video.src = mediaUrl;
-        card.appendChild(video);
-      } else {
-        const previewUrl = mediaType === 'VIDEO' ? thumbnailUrl : (mediaUrl || thumbnailUrl);
-        if (previewUrl) {
-          const image = document.createElement('img');
-          image.src = previewUrl;
-          image.alt = mediaType + ' Instagram media';
-          image.loading = 'lazy';
-          image.referrerPolicy = 'no-referrer';
-          card.appendChild(image);
-        } else {
-          const placeholder = document.createElement('div');
-          placeholder.className = 'ig-no-preview';
-          placeholder.textContent = mediaType === 'VIDEO'
-            ? 'Video preview unavailable'
-            : 'Preview unavailable';
-          card.appendChild(placeholder);
-        }
-      }
-
-      if (mediaType === 'CAROUSEL_ALBUM' && Array.isArray(item.children) && item.children.length) {
-        const childGrid = document.createElement('div');
-        childGrid.className = 'ig-child-grid';
-        addText(childGrid, 'div', 'ig-child-heading', 'CAROUSEL MEDIA · ' + item.children.length + ' FILE(S)');
-
-        item.children.forEach((child, index) => {
-          const childCard = document.createElement('div');
-          childCard.className = 'ig-child-card';
-          const childUrl = safeHttpUrl(child.media_url);
-          const childThumb = safeHttpUrl(child.thumbnail_url);
-          const childType = String(child.media_type || 'MEDIA').toUpperCase();
-
-          if (childType === 'VIDEO' && childUrl) {
-            const childVideo = document.createElement('video');
-            childVideo.className = 'ig-child-preview';
-            childVideo.controls = true;
-            childVideo.preload = 'metadata';
-            childVideo.playsInline = true;
-            if (childThumb) childVideo.poster = childThumb;
-            childVideo.src = childUrl;
-            childCard.appendChild(childVideo);
-          } else if (childThumb || childUrl) {
-            const childImage = document.createElement('img');
-            childImage.className = 'ig-child-preview';
-            childImage.src = childThumb || childUrl;
-            childImage.alt = 'Instagram carousel item ' + (index + 1);
-            childImage.loading = 'lazy';
-            childImage.referrerPolicy = 'no-referrer';
-            childCard.appendChild(childImage);
-          } else {
-            addText(childCard, 'div', 'ig-no-preview', 'Preview unavailable');
-          }
-
-          addText(childCard, 'div', 'ig-child-type', childType + ' · ' + (index + 1));
-          appendInstagramDownload(childCard, childUrl, 'Download item ↓', 'Carousel item ' + (index + 1));
-          childGrid.appendChild(childCard);
-        });
-        card.appendChild(childGrid);
-      }
-
-      const body = document.createElement('div');
-      body.className = 'ig-item-body';
-      addText(body, 'div', 'ig-item-type', mediaType === 'VIDEO' ? 'VIDEO / REEL' : mediaType);
-      addText(body, 'p', 'ig-item-caption', item.caption || 'No caption');
-
-      const links = document.createElement('div');
-      links.className = 'ig-item-links';
-
-      if (mediaUrl) {
-        appendInstagramDownload(links, mediaUrl, 'Download file ↓', item.media_type || 'Authorized media file');
-      } else if (mediaType !== 'CAROUSEL_ALBUM') {
-        addText(body, 'p', 'ig-item-unavailable',
-          'Instagram did not provide a downloadable media URL for this item. Open the post in Instagram or export your original from Accounts Center.');
-      }
-
-      const permalink = safeHttpUrl(item.permalink);
-      if (permalink) {
-        const openPost = document.createElement('a');
-        openPost.href = permalink;
-        openPost.target = '_blank';
-        openPost.rel = 'noopener noreferrer';
-        openPost.textContent = 'View Instagram post';
-        links.appendChild(openPost);
-      }
-
-      if (links.childElementCount) body.appendChild(links);
-      card.appendChild(body);
-      instagramGrid.appendChild(card);
-    }
-
-    instagramGrid.hidden = false;
-    instagramMessage.textContent = 'Loaded ' + items.length + ' item(s). Media file links are shown only when Instagram provides them.';
-    instagramMessage.className = 'ig-message ig-success';
-    recordHistory('Instagram', 'Loaded ' + items.length + ' authorized media items');
+    const actions = document.createElement('div'); actions.className = 'result-actions';
+    addDownloadForm(actions, url, data.filename);
+    const open = document.createElement('a'); open.className = 'open-source-btn'; open.href = url; open.target = '_blank'; open.rel = 'noopener noreferrer'; open.textContent = 'Open original file';
+    actions.appendChild(open); resultContent.appendChild(actions);
+    const note = document.createElement('p'); note.className = 'result-message'; note.textContent = 'Files are streamed from the source and are not kept in a permanent MediaSave Pro archive. Limit: 100 MB per file.';
+    resultContent.appendChild(note);
+    addHistory('CHECKED', data.filename || 'Direct media link');
   }
 
-  const sampleUrlButton = $('sample-url');
-  if (sampleUrlButton && urlInput) {
-    sampleUrlButton.addEventListener('click', () => {
-      urlInput.value = 'https://www.samplefiles.online/files/sample.mp4';
-      urlInput.focus();
-      result.hidden = true;
+  function renderPlatformGuide(data) {
+    showResult((data.platformName || 'Social platform') + ' link detected', 'This is a social post page, not a direct media-file URL.', 'guide');
+    const title = document.createElement('h3'); title.className = 'guide-title'; title.textContent = data.title || 'Official save options';
+    resultContent.appendChild(title);
+    const message = document.createElement('p'); message.className = 'result-message';
+    message.textContent = 'Follow the platform’s permitted download or export option. MediaSave Pro does not extract restricted streams.';
+    resultContent.appendChild(message);
+    const list = document.createElement('ol'); list.className = 'guide-list';
+    (Array.isArray(data.instructions) ? data.instructions : []).forEach(step => {
+      const li = document.createElement('li'); li.textContent = step; list.appendChild(li);
     });
-  }
-
-  if (clearButton) {
-    clearButton.addEventListener('click', () => {
-      urlInput.value = '';
-      result.hidden = true;
-      urlInput.focus();
-    });
+    resultContent.appendChild(list);
+    const actions = document.createElement('div'); actions.className = 'result-actions';
+    const post = safeUrl(data.originalUrl);
+    const help = safeUrl(data.helpUrl);
+    if (post) { const a = document.createElement('a'); a.className = 'open-source-btn'; a.href = post; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = 'Open original post'; actions.appendChild(a); }
+    if (help) { const a = document.createElement('a'); a.className = 'open-source-btn'; a.href = help; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = 'Official help'; actions.appendChild(a); }
+    resultContent.appendChild(actions);
+    const note = document.createElement('p'); note.className = 'result-message'; note.textContent = 'Only save videos you own or have permission to use.'; resultContent.appendChild(note);
+    addHistory('GUIDE', data.platformName || data.platform || 'Social media link');
   }
 
   if (form) {
     form.addEventListener('submit', async event => {
       event.preventDefault();
-      const value = urlInput.value.trim();
-      if (!value) return;
-
-      if (!base) {
-        result.hidden = false;
-        output.textContent = 'API_BASE_URL is missing in app-config.js.';
-        return;
-      }
-
-      submitButton.disabled = true;
-      submitButton.firstChild.textContent = ' Checking…';
-      result.hidden = false;
-      output.textContent = 'Checking link…';
-
-      const previousAction = document.getElementById('direct-link-action');
-      if (previousAction) previousAction.remove();
-
+      const value = (input.value || '').trim();
+      if (!value) { input.focus(); return; }
+      checkButton.disabled = true; checkButton.textContent = 'Checking…';
+      showResult('Checking your link', 'Connecting securely to the media service.');
       try {
-        const response = await api('/api/resolve', {
-          method: 'POST',
-          body: JSON.stringify({ url: value })
-        });
-
+        const response = await api('/api/resolve', { method: 'POST', body: JSON.stringify({ url: value }) });
         if (!response.ok) {
-          output.textContent = (response.data.error || 'The link could not be processed.') +
-            (response.data.guidance ? '\n' + response.data.guidance : '') +
-            '\nHTTP status: ' + response.status;
-        } else if (response.data.status === 'validated' && response.data.url) {
-          output.textContent = 'DIRECT MEDIA FILE VERIFIED\n' +
-            (response.data.filename || 'Media file') +
-            '\nTap “Download file” below to save it to your device.';
-
-          const actionBox = document.createElement('div');
-          actionBox.id = 'direct-link-action';
-          actionBox.className = 'direct-link-action';
-
-          addDirectMediaPreview(actionBox, response.data.url, response.data.filename);
-
-          const downloadForm = document.createElement('form');
-          downloadForm.method = 'POST';
-          downloadForm.action = base + '/api/download';
-          downloadForm.target = '_blank';
-          downloadForm.className = 'download-proxy-form';
-
-          const urlField = document.createElement('input');
-          urlField.type = 'hidden';
-          urlField.name = 'url';
-          urlField.value = response.data.url;
-          downloadForm.appendChild(urlField);
-
-          const downloadButton = document.createElement('button');
-          downloadButton.type = 'submit';
-          downloadButton.className = 'submit direct-download-button';
-          downloadButton.textContent = 'Download file ↓';
-          downloadForm.appendChild(downloadButton);
-          downloadForm.addEventListener('submit', () => {
-            recordHistory('Download started', response.data.filename || 'Direct media file');
-          });
-          actionBox.appendChild(downloadForm);
-
-          const openLink = document.createElement('a');
-          openLink.href = response.data.url;
-          openLink.target = '_blank';
-          openLink.rel = 'noopener noreferrer';
-          openLink.textContent = 'Open original source';
-          openLink.className = 'direct-source-link';
-          actionBox.appendChild(openLink);
-
-          const note = document.createElement('p');
-          note.textContent = 'Downloads direct HTTPS media files up to 100 MB. The source must permit access and return the file without redirects. Social-media post pages are not downloadable through this tool.';
-          actionBox.appendChild(note);
-          result.appendChild(actionBox);
+          showResult('Link could not be used', 'Please check the URL and use a direct HTTPS media-file link.', 'error');
+          const p = document.createElement('p'); p.className = 'result-message'; p.textContent = response.data.error || 'The media source rejected this link.';
+          resultContent.appendChild(p);
+          if (response.data.guidance) { const g = document.createElement('p'); g.className = 'result-message'; g.textContent = response.data.guidance; resultContent.appendChild(g); }
+        } else if (response.data.status === 'validated') {
+          renderDirectFile(response.data);
         } else if (response.data.status === 'platform-guide') {
-          output.textContent = (response.data.platformName || 'Social platform') +
-            ' LINK DETECTED\nThis is a post page, not a direct media file. Follow the official save instructions below.';
+          renderPlatformGuide(response.data);
+        } else {
+          showResult('Link checked', response.data.message || 'The link was checked.');
+        }
+      } catch (error) {
+        showResult('Service unavailable', error.message, 'error');
+      } finally {
+        checkButton.disabled = false; checkButton.innerHTML = 'Check link <span>→</span>';
+      }
+    });
+  }
 
-          const guideBox = document.createElement('div');
-          guideBox.id = 'direct-link-action';
-          guideBox.className = 'platform-result-guide';
+  $('clear-input')?.addEventListener('click', () => { input.value = ''; resultPanel.hidden = true; input.focus(); });
+  $('paste-btn')?.addEventListener('click', async () => {
+    try { input.value = await navigator.clipboard.readText(); input.focus(); }
+    catch { input.focus(); input.placeholder = 'Long press here and choose Paste'; }
+  });
+  $('sample-btn')?.addEventListener('click', () => {
+    input.value = 'https://www.samplefiles.online/files/sample.mp4';
+    input.focus(); resultPanel.hidden = true;
+  });
 
-          addText(guideBox, 'div', 'platform-result-kicker', response.data.platformName || 'Platform');
-          addText(guideBox, 'h3', 'platform-result-title', response.data.title || 'Official save options');
+  document.querySelectorAll('[data-platform]').forEach(button => {
+    button.addEventListener('click', () => {
+      document.querySelectorAll('[data-platform]').forEach(x => x.classList.toggle('active', x === button));
+      inputHelp.textContent = platformHints[button.dataset.platform];
+      input.focus();
+    });
+  });
 
-          const list = document.createElement('ol');
-          list.className = 'platform-result-steps';
-          (Array.isArray(response.data.instructions) ? response.data.instructions : []).forEach(step => {
-            addText(list, 'li', '', step);
-          });
-          guideBox.appendChild(list);
+  $('clear-history')?.addEventListener('click', () => {
+    try { localStorage.removeItem(HISTORY_KEY); } catch {}
+    renderHistory();
+  });
 
-          const links = document.createElement('div');
-          links.className = 'ig-item-links';
-          const originalUrl = safeHttpUrl(response.data.originalUrl);
-          const helpUrl = safeHttpUrl(response.data.helpUrl);
-          if (originalUrl) {
-            const original = document.createElement('a');
-            original.href = originalUrl;
-            original.target = '_blank';
-            original.rel = 'noopener noreferrer';
-            original.textContent = 'Open original post';
-            links.appendChild(original);
+  $('theme-toggle')?.addEventListener('click', () => {
+    document.body.classList.toggle('dark');
+    try { localStorage.setItem('mediasave-simple-theme', document.body.classList.contains('dark') ? 'dark' : 'light'); } catch {}
+  });
+  try { if (localStorage.getItem('mediasave-simple-theme') === 'dark') document.body.classList.add('dark'); } catch {}
+  renderHistory();
+  $('year').textContent = new Date().getFullYear();
+
+  api('/api/health').then(r => setStatus(r.ok && r.data.status === 'ok', r.ok ? 'MediaSave Pro is online' : 'Service needs attention')).catch(() => setStatus(false, 'Service temporarily unavailable'));
+
+  // Private owner-only Instagram feed and Reel library. The key is never persisted.
+  const ownerButton = $('load-owner-media');
+  if (ownerButton) {
+    const keyInput = $('owner-access-key');
+    const message = $('owner-message');
+    const grid = $('owner-grid');
+    ownerButton.addEventListener('click', async () => {
+      const key = (keyInput.value || '').trim();
+      if (!key) { message.textContent = 'Enter your private owner access key.'; return; }
+      ownerButton.disabled = true; ownerButton.textContent = 'Loading your media…'; message.textContent = 'Connecting to your authorised Instagram account…';
+      grid.replaceChildren(); grid.hidden = true;
+      try {
+        const r = await api('/api/instagram/media?limit=25', { headers: { Authorization: 'Bearer ' + key } });
+        if (!r.ok) throw new Error(r.data.error || 'Instagram media could not be loaded.');
+        const items = Array.isArray(r.data.media) ? r.data.media : [];
+        if (!items.length) { message.textContent = 'No media was returned. Check the Professional account, token and permissions.'; return; }
+        items.forEach(item => {
+          const card = document.createElement('article'); card.className = 'owner-media-card';
+          const type = String(item.media_type || 'MEDIA').toUpperCase();
+          const url = safeUrl(item.media_url);
+          const poster = safeUrl(item.thumbnail_url);
+          if (type === 'VIDEO' && url) {
+            const video = document.createElement('video'); video.controls = true; video.playsInline = true; video.preload = 'metadata'; if (poster) video.poster = poster; video.src = url; card.appendChild(video);
+          } else if (poster || url) {
+            const img = document.createElement('img'); img.src = poster || url; img.alt = 'Your Instagram media'; img.loading = 'lazy'; card.appendChild(img);
+          } else {
+            const placeholder = document.createElement('div'); placeholder.className = 'owner-placeholder'; placeholder.textContent = 'Preview unavailable'; card.appendChild(placeholder);
           }
-          if (helpUrl) {
-            const help = document.createElement('a');
-            help.href = helpUrl;
-            help.target = '_blank';
-            help.rel = 'noopener noreferrer';
-            help.textContent = 'Official help';
-            links.appendChild(help);
+          const body = document.createElement('div'); body.className = 'owner-media-body';
+          const label = document.createElement('b'); label.textContent = type === 'VIDEO' ? 'VIDEO / REEL' : type; body.appendChild(label);
+          const caption = document.createElement('p'); caption.textContent = item.caption || 'No caption'; body.appendChild(caption);
+          if (Array.isArray(item.children) && item.children.length) {
+            const hint = document.createElement('small'); hint.textContent = 'Carousel items'; body.appendChild(hint);
+            item.children.forEach((child, i) => {
+              if (!safeUrl(child.media_url)) return;
+              const childForm = document.createElement('form'); childForm.method = 'POST'; childForm.action = API + '/api/download'; childForm.target = '_blank';
+              const field = document.createElement('input'); field.type = 'hidden'; field.name = 'url'; field.value = child.media_url;
+              const btn = document.createElement('button'); btn.type = 'submit'; btn.className = 'owner-download'; btn.textContent = 'Download item ' + (i + 1);
+              childForm.append(field, btn); body.appendChild(childForm);
+            });
           }
-          guideBox.appendChild(links);
-          addText(guideBox, 'p', 'platform-result-note', response.data.note || 'Only save content you own or have permission to use.');
-          result.appendChild(guideBox);
-          recordHistory('Platform guide', response.data.platformName || response.data.platform || 'Social link checked');
-        } else {
-          output.textContent = response.data.message || 'Link checked.';
-        }
-      } catch (error) {
-        output.textContent = error.message;
-      } finally {
-        submitButton.disabled = false;
-        submitButton.firstChild.textContent = 'Check link ';
-      }
-    });
-  }
-
-  if (instagramButton) {
-    instagramButton.addEventListener('click', async () => {
-      instagramButton.disabled = true;
-      instagramButton.firstChild.textContent = ' Loading…';
-      instagramMessage.textContent = 'Contacting your authorized Instagram account…';
-      instagramMessage.className = 'ig-message';
-      instagramGrid.hidden = true;
-
-      try {
-        const privateKey = instagramAccessKey ? instagramAccessKey.value.trim() : '';
-        if (!privateKey) {
-          throw new Error('Enter your private MediaSave access key first.');
-        }
-        const response = await api('/api/instagram/media?limit=15', {
-          headers: { Authorization: 'Bearer ' + privateKey }
+          if (url) {
+            const dl = document.createElement('form'); dl.method = 'POST'; dl.action = API + '/api/download'; dl.target = '_blank';
+            const field = document.createElement('input'); field.type = 'hidden'; field.name = 'url'; field.value = url;
+            const btn = document.createElement('button'); btn.type = 'submit'; btn.className = 'download-file-btn'; btn.textContent = 'Download file ↓';
+            dl.append(field, btn); body.appendChild(dl);
+          } else {
+            const unavailable = document.createElement('small'); unavailable.textContent = 'Meta did not provide a direct media URL for this item.'; body.appendChild(unavailable);
+          }
+          if (safeUrl(item.permalink)) { const post = document.createElement('a'); post.href = item.permalink; post.target = '_blank'; post.rel = 'noopener noreferrer'; post.textContent = 'View original post'; post.className = 'owner-post-link'; body.appendChild(post); }
+          card.appendChild(body); grid.appendChild(card);
         });
-        if (!response.ok) {
-          const message = response.data.details || response.data.error || 'Instagram request failed.';
-          throw new Error(message + ' (HTTP ' + response.status + ')');
-        }
-        if (response.data.status !== 'ok') {
-          throw new Error(response.data.error || 'Instagram media could not be loaded.');
-        }
-        renderInstagramMedia(response.data.media);
-      } catch (error) {
-        instagramMessage.textContent = error.message;
-        instagramMessage.className = 'ig-message ig-error';
-      } finally {
-        instagramButton.disabled = false;
-        instagramButton.firstChild.textContent = 'Load my Instagram media ';
-      }
+        grid.hidden = false; message.textContent = 'Loaded ' + items.length + ' items from your authorised Instagram Professional account. Only items with a direct media URL have a download button.';
+      } catch (error) { message.textContent = error.message; }
+      finally { ownerButton.disabled = false; ownerButton.textContent = 'Load my Instagram media'; }
     });
   }
-
-
-  // All video processing stays in this browser; files are never uploaded to the backend.
-  const videoInput = $('video-file');
-  const videoPreview = $('video-preview');
-  const videoQuality = $('video-quality');
-  const compressButton = $('compress-video');
-  const thumbnailButton = $('make-thumbnail');
-  const videoStatus = $('video-status');
-  const videoOutput = $('video-output');
-  let selectedVideoUrl = '';
-  let currentOutputUrl = '';
-
-  function showVideoStatus(message, kind = '') {
-    if (!videoStatus) return;
-    videoStatus.textContent = message;
-    videoStatus.className = 'video-status' + (kind ? ' ' + kind : '');
-  }
-
-  function addVideoDownload(blob, filename, label) {
-    if (currentOutputUrl) URL.revokeObjectURL(currentOutputUrl);
-    currentOutputUrl = URL.createObjectURL(blob);
-    videoOutput.replaceChildren();
-    const link = document.createElement('a');
-    link.href = currentOutputUrl;
-    link.download = filename;
-    link.className = 'submit';
-    link.textContent = label;
-    videoOutput.appendChild(link);
-    videoOutput.hidden = false;
-  }
-
-  function waitForVideoEvent(element, eventName) {
-    return new Promise((resolve, reject) => {
-      const onSuccess = () => {
-        cleanup();
-        resolve();
-      };
-      const onError = () => {
-        cleanup();
-        reject(new Error('The selected video could not be read by this browser.'));
-      };
-      const cleanup = () => {
-        element.removeEventListener(eventName, onSuccess);
-        element.removeEventListener('error', onError);
-      };
-      element.addEventListener(eventName, onSuccess, { once: true });
-      element.addEventListener('error', onError, { once: true });
-    });
-  }
-
-  if (videoInput && videoPreview && compressButton && thumbnailButton) {
-    compressButton.disabled = true;
-    thumbnailButton.disabled = true;
-
-    videoInput.addEventListener('change', () => {
-      const file = videoInput.files && videoInput.files[0];
-      videoOutput.hidden = true;
-      if (currentOutputUrl) {
-        URL.revokeObjectURL(currentOutputUrl);
-        currentOutputUrl = '';
-      }
-      if (!file) {
-        compressButton.disabled = true;
-        thumbnailButton.disabled = true;
-        videoPreview.hidden = true;
-        showVideoStatus('Choose a video file to begin.');
-        return;
-      }
-      if (!file.type.startsWith('video/')) {
-        showVideoStatus('Please choose a supported video file.', 'video-error');
-        videoInput.value = '';
-        return;
-      }
-      if (file.size > 200 * 1024 * 1024) {
-        showVideoStatus('This browser tool supports files up to 200 MB. Choose a smaller file.', 'video-error');
-        videoInput.value = '';
-        return;
-      }
-      if (selectedVideoUrl) URL.revokeObjectURL(selectedVideoUrl);
-      selectedVideoUrl = URL.createObjectURL(file);
-      videoPreview.src = selectedVideoUrl;
-      videoPreview.hidden = false;
-      videoPreview.load();
-      showVideoStatus('Loading video preview…');
-      videoPreview.onloadedmetadata = () => {
-        compressButton.disabled = false;
-        thumbnailButton.disabled = false;
-        const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-        showVideoStatus(
-          'Ready: ' + file.name + ' · ' + sizeMb + ' MB · ' +
-          videoPreview.videoWidth + '×' + videoPreview.videoHeight,
-          'video-success'
-        );
-      };
-    });
-
-    compressButton.addEventListener('click', async () => {
-      if (!videoPreview.src || !videoPreview.videoWidth) {
-        showVideoStatus('Choose a video first.', 'video-error');
-        return;
-      }
-      if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
-        showVideoStatus('This browser does not support in-browser video conversion. Try the latest Chrome on Android.', 'video-error');
-        return;
-      }
-
-      compressButton.disabled = true;
-      thumbnailButton.disabled = true;
-      videoOutput.hidden = true;
-      showVideoStatus('Processing on this device. Keep this tab open until it finishes…');
-
-      let canvasStream;
-      let sourceStream;
-      let frameId = 0;
-      try {
-        const maxDimension = Number(videoQuality.value || 720);
-        const scale = Math.min(1, maxDimension / Math.max(videoPreview.videoWidth, videoPreview.videoHeight));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(2, Math.round(videoPreview.videoWidth * scale / 2) * 2);
-        canvas.height = Math.max(2, Math.round(videoPreview.videoHeight * scale / 2) * 2);
-        const context = canvas.getContext('2d', { alpha: false });
-        canvasStream = canvas.captureStream(24);
-
-        const capture = videoPreview.captureStream || videoPreview.mozCaptureStream;
-        if (capture) {
-          sourceStream = capture.call(videoPreview);
-          sourceStream.getAudioTracks().forEach(track => canvasStream.addTrack(track));
-        }
-
-        const candidates = [
-          'video/webm;codecs=vp9,opus',
-          'video/webm;codecs=vp8,opus',
-          'video/webm'
-        ];
-        const mimeType = candidates.find(type => MediaRecorder.isTypeSupported(type));
-        if (!mimeType) throw new Error('This browser cannot encode WebM video.');
-
-        const bitrate = maxDimension >= 2160 ? 18000000 : maxDimension >= 1440 ? 10000000 : maxDimension >= 1080 ? 6000000 : maxDimension >= 720 ? 3500000 : 1800000;
-        const recorder = new MediaRecorder(canvasStream, { mimeType, videoBitsPerSecond: bitrate });
-        const chunks = [];
-        recorder.ondataavailable = event => {
-          if (event.data && event.data.size) chunks.push(event.data);
-        };
-
-        const stopped = new Promise((resolve, reject) => {
-          recorder.onerror = () => reject(new Error('Video conversion failed in this browser.'));
-          recorder.onstop = resolve;
-        });
-
-        const drawFrame = () => {
-          if (videoPreview.ended || videoPreview.paused) return;
-          context.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
-          frameId = requestAnimationFrame(drawFrame);
-        };
-
-        videoPreview.pause();
-        if (videoPreview.currentTime > 0.05) {
-          const seeked = waitForVideoEvent(videoPreview, 'seeked');
-          videoPreview.currentTime = 0;
-          await seeked;
-        } else {
-          videoPreview.currentTime = 0;
-        }
-        context.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
-        recorder.start(1000);
-        videoPreview.addEventListener('ended', () => {
-          if (recorder.state !== 'inactive') recorder.stop();
-        }, { once: true });
-        await videoPreview.play();
-        drawFrame();
-
-        const durationMs = Number.isFinite(videoPreview.duration) ? videoPreview.duration * 1000 : 0;
-        if (durationMs > 0) {
-          const timeoutId = setTimeout(() => {
-            if (recorder.state !== 'inactive') recorder.stop();
-          }, durationMs + 15000);
-          await stopped.finally(() => clearTimeout(timeoutId));
-        } else {
-          await stopped;
-        }
-
-        cancelAnimationFrame(frameId);
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        if (!blob.size) throw new Error('No output was created. Try another video file.');
-        const originalName = (videoInput.files[0].name || 'video').replace(/\.[^.]+$/, '');
-        const outputName = originalName + '-mediasave-' + maxDimension + 'p.webm';
-        addVideoDownload(blob, outputName, 'Download converted WebM · ' + (blob.size / (1024 * 1024)).toFixed(1) + ' MB');
-        showVideoStatus('Finished. Output is capped at ' + maxDimension + 'p and never upscales beyond the source resolution. It was created on this device, not uploaded.', 'video-success');
-        recordHistory('Video tool', outputName);
-      } catch (error) {
-        showVideoStatus(error.message || 'Video conversion failed.', 'video-error');
-      } finally {
-        if (frameId) cancelAnimationFrame(frameId);
-        if (canvasStream) canvasStream.getTracks().forEach(track => track.stop());
-        if (sourceStream) sourceStream.getTracks().forEach(track => track.stop());
-        videoPreview.pause();
-        compressButton.disabled = false;
-        thumbnailButton.disabled = false;
-      }
-    });
-
-    thumbnailButton.addEventListener('click', async () => {
-      if (!videoPreview.src || !videoPreview.videoWidth) {
-        showVideoStatus('Choose a video first.', 'video-error');
-        return;
-      }
-      try {
-        const targetTime = Math.min(1.5, Math.max(0, videoPreview.duration / 2));
-        if (Math.abs(videoPreview.currentTime - targetTime) > 0.1) {
-          const seeked = waitForVideoEvent(videoPreview, 'seeked');
-          videoPreview.currentTime = targetTime;
-          await seeked;
-        }
-        const canvas = document.createElement('canvas');
-        const scale = Math.min(1, 1280 / videoPreview.videoWidth);
-        canvas.width = Math.round(videoPreview.videoWidth * scale);
-        canvas.height = Math.round(videoPreview.videoHeight * scale);
-        canvas.getContext('2d').drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        if (!blob) throw new Error('Could not create the thumbnail.');
-        const name = (videoInput.files[0].name || 'video').replace(/\.[^.]+$/, '') + '-thumbnail.png';
-        addVideoDownload(blob, name, 'Download thumbnail PNG');
-        showVideoStatus('Thumbnail created on this device.', 'video-success');
-        recordHistory('Thumbnail', name);
-      } catch (error) {
-        showVideoStatus(error.message || 'Thumbnail creation failed.', 'video-error');
-      }
-    });
-  }
-
-  checkHealth();
 })();
