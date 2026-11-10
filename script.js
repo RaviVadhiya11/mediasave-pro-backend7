@@ -286,6 +286,33 @@
     return node;
   }
 
+  function appendInstagramDownload(parent, mediaUrl, label, historyTitle) {
+    const safeUrl = safeHttpUrl(mediaUrl);
+    if (!safeUrl) {
+      addText(parent, 'p', 'ig-item-unavailable', 'Meta did not provide a downloadable media file for this item.');
+      return;
+    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = base + '/api/download';
+    form.target = '_blank';
+    form.className = 'ig-download-form';
+
+    const field = document.createElement('input');
+    field.type = 'hidden';
+    field.name = 'url';
+    field.value = safeUrl;
+    form.appendChild(field);
+
+    const button = document.createElement('button');
+    button.type = 'submit';
+    button.textContent = label || 'Download file ↓';
+    button.className = 'ig-download-button';
+    form.appendChild(button);
+    form.addEventListener('submit', () => recordHistory('Instagram download started', historyTitle || 'Authorized media file'));
+    parent.appendChild(form);
+  }
+
   function renderInstagramMedia(items) {
     instagramGrid.replaceChildren();
     if (!Array.isArray(items) || items.length === 0) {
@@ -331,6 +358,46 @@
         }
       }
 
+      if (mediaType === 'CAROUSEL_ALBUM' && Array.isArray(item.children) && item.children.length) {
+        const childGrid = document.createElement('div');
+        childGrid.className = 'ig-child-grid';
+        addText(childGrid, 'div', 'ig-child-heading', 'CAROUSEL MEDIA · ' + item.children.length + ' FILE(S)');
+
+        item.children.forEach((child, index) => {
+          const childCard = document.createElement('div');
+          childCard.className = 'ig-child-card';
+          const childUrl = safeHttpUrl(child.media_url);
+          const childThumb = safeHttpUrl(child.thumbnail_url);
+          const childType = String(child.media_type || 'MEDIA').toUpperCase();
+
+          if (childType === 'VIDEO' && childUrl) {
+            const childVideo = document.createElement('video');
+            childVideo.className = 'ig-child-preview';
+            childVideo.controls = true;
+            childVideo.preload = 'metadata';
+            childVideo.playsInline = true;
+            if (childThumb) childVideo.poster = childThumb;
+            childVideo.src = childUrl;
+            childCard.appendChild(childVideo);
+          } else if (childThumb || childUrl) {
+            const childImage = document.createElement('img');
+            childImage.className = 'ig-child-preview';
+            childImage.src = childThumb || childUrl;
+            childImage.alt = 'Instagram carousel item ' + (index + 1);
+            childImage.loading = 'lazy';
+            childImage.referrerPolicy = 'no-referrer';
+            childCard.appendChild(childImage);
+          } else {
+            addText(childCard, 'div', 'ig-no-preview', 'Preview unavailable');
+          }
+
+          addText(childCard, 'div', 'ig-child-type', childType + ' · ' + (index + 1));
+          appendInstagramDownload(childCard, childUrl, 'Download item ↓', 'Carousel item ' + (index + 1));
+          childGrid.appendChild(childCard);
+        });
+        card.appendChild(childGrid);
+      }
+
       const body = document.createElement('div');
       body.className = 'ig-item-body';
       addText(body, 'div', 'ig-item-type', mediaType === 'VIDEO' ? 'VIDEO / REEL' : mediaType);
@@ -340,28 +407,8 @@
       links.className = 'ig-item-links';
 
       if (mediaUrl) {
-        const downloadForm = document.createElement('form');
-        downloadForm.method = 'POST';
-        downloadForm.action = base + '/api/download';
-        downloadForm.target = '_blank';
-        downloadForm.className = 'ig-download-form';
-
-        const mediaField = document.createElement('input');
-        mediaField.type = 'hidden';
-        mediaField.name = 'url';
-        mediaField.value = mediaUrl;
-        downloadForm.appendChild(mediaField);
-
-        const download = document.createElement('button');
-        download.type = 'submit';
-        download.textContent = 'Download file ↓';
-        download.className = 'ig-download-button';
-        downloadForm.appendChild(download);
-        downloadForm.addEventListener('submit', () => {
-          recordHistory('Instagram download started', item.media_type || 'Authorized media file');
-        });
-        links.appendChild(downloadForm);
-      } else {
+        appendInstagramDownload(links, mediaUrl, 'Download file ↓', item.media_type || 'Authorized media file');
+      } else if (mediaType !== 'CAROUSEL_ALBUM') {
         addText(body, 'p', 'ig-item-unavailable',
           'Instagram did not provide a downloadable media URL for this item. Open the post in Instagram or export your original from Accounts Center.');
       }
