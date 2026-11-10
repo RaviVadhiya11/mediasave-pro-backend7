@@ -68,25 +68,46 @@ app.get('/api/providers', (_req, res) => {
   });
 });
 
-// Lists media belonging to the Instagram Professional account that authorized this app.
-// The token is read only from Render environment variables and is never returned to the browser.
+// Lists media for the Instagram account assigned to the Unified Login system-user token.
+// The token stays on Render; it is never returned to the browser.
 app.get('/api/instagram/media', async (req, res) => {
   const token = process.env.INSTAGRAM_ACCESS_TOKEN;
+  const mode = (process.env.INSTAGRAM_API_MODE || 'unified').toLowerCase();
+  const version = process.env.INSTAGRAM_GRAPH_VERSION || 'v27.0';
+  const instagramUserId = process.env.INSTAGRAM_USER_ID;
+
   if (!token) {
     return res.status(503).json({
-      error: 'Instagram is not configured on the server.',
+      error: 'Instagram token is missing on the server.',
       requiredEnvironmentVariable: 'INSTAGRAM_ACCESS_TOKEN'
     });
+  }
+
+  if (mode === 'unified' && !instagramUserId) {
+    return res.status(503).json({
+      error: 'Unified Login requires the Instagram account ID.',
+      requiredEnvironmentVariable: 'INSTAGRAM_USER_ID'
+    });
+  }
+
+  if (!['unified', 'instagram_login'].includes(mode)) {
+    return res.status(500).json({ error: 'Unsupported Instagram API mode.' });
   }
 
   const requestedLimit = Number.parseInt(req.query.limit, 10);
   const limit = Number.isFinite(requestedLimit)
     ? Math.min(Math.max(requestedLimit, 1), 25)
     : 15;
-  const version = process.env.INSTAGRAM_GRAPH_VERSION || 'v27.0';
+
+  // Unified Login uses a Business Integration System User token on graph.facebook.com
+  // and the assigned Instagram professional account ID. Instagram Login uses graph.instagram.com/me.
+  const graphHost = mode === 'unified' ? 'graph.facebook.com' : 'graph.instagram.com';
+  const edge = mode === 'unified'
+    ? '/' + encodeURIComponent(instagramUserId) + '/media'
+    : '/me/media';
 
   try {
-    const url = new URL(`https://graph.instagram.com/${version}/me/media`);
+    const url = new URL(`https://${graphHost}/${version}${edge}`);
     url.searchParams.set(
       'fields',
       'id,caption,media_type,media_url,permalink,timestamp,thumbnail_url'
@@ -100,11 +121,11 @@ app.get('/api/instagram/media', async (req, res) => {
     const payload = await upstream.json().catch(() => ({}));
 
     if (!upstream.ok) {
-      // Do not forward token, request URL, or raw upstream diagnostics to the client.
       return res.status(502).json({
-        error: 'Instagram rejected the authorized media request.',
+        error: 'Meta rejected the Instagram media request.',
         upstreamStatus: upstream.status,
-        details: payload.error?.message || 'Check token validity, Instagram account role, API version and instagram_business_basic permission.'
+        metaCode: payload.error?.code || null,
+        details: payload.error?.message || 'Check token permissions, assigned Instagram asset, account ID and API version.'
       });
     }
 
@@ -121,13 +142,14 @@ app.get('/api/instagram/media', async (req, res) => {
     return res.json({
       status: 'ok',
       provider: 'instagram',
+      authMode: mode,
       count: media.length,
       media,
       paging: payload.paging || null
     });
   } catch (_error) {
     return res.status(502).json({
-      error: 'Could not contact Instagram. Please retry later.'
+      error: 'Could not contact the Meta Graph API. Please retry later.'
     });
   }
 });
