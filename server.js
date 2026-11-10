@@ -50,7 +50,7 @@ app.use('/api/', rateLimit({
 }));
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'MediaSave Pro API', version: '3.3.0' });
+  res.json({ status: 'ok', service: 'MediaSave Pro API', version: '3.4.0' });
 });
 
 app.get('/api/providers', (_req, res) => {
