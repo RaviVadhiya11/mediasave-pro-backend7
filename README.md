@@ -1,46 +1,52 @@
-# MediaSave Pro API — v3.2
+# MediaSave Pro — Hybrid Media Tools
 
-Node.js API backend for the MediaSave Pro GitHub Pages frontend.
+Static public website plus a small Node.js API backend.
 
-## Deploy on Render
+## Public features
+
+- Direct media-link checker: accepts direct media-file URLs with supported extensions. It validates the URL and opens the original host. It does not fetch, proxy, scrape, or re-host remote files; the source host and browser control whether a file is downloaded or previewed.
+- Browser video tools: compress/re-encode a user-selected local video to WebM (720p or 480p target) and create a PNG thumbnail. Processing runs in the browser; the selected video is not uploaded to this API. Browser codec support, device memory and file size affect availability.
+- Private owner Instagram area: lists media belonging to the Professional Instagram account authorized by the site owner. It is not a public Instagram downloader.
+
+## Render deployment
 
 - Runtime: Node
 - Build command: `npm install`
 - Start command: `npm start`
-- Set `ALLOWED_ORIGINS=https://ravivadhiya11.github.io` in Render Environment.
+- Set `ALLOWED_ORIGINS` in Render to the actual GitHub Pages origin(s), comma-separated. Current known values are:
+  `https://vivadhiya11.github.io,https://ravivadhiya11.github.io`
 
-### Instagram Unified Login setup
+### Private Instagram configuration
 
-The current Meta app setup shown in the dashboard says **Unified Login** and creates a **System-user access token (SUAT)**. For this mode, the server uses `graph.facebook.com` and the Instagram professional account ID.
+The Meta app dashboard used in setup showed **Unified Login** and a System-user access token (SUAT). This backend uses `graph.facebook.com` and the Instagram Professional account ID in this mode.
 
-Set these variables in Render → your service → Environment:
+Set these variables in Render → Environment:
 
 - `INSTAGRAM_API_MODE=unified`
-- `INSTAGRAM_ACCESS_TOKEN` = your Meta-generated SUAT (secret; do not put in GitHub)
-- `INSTAGRAM_USER_ID=17841430415668153` = the Instagram account ID shown beside your connected account in Meta
+- `INSTAGRAM_ACCESS_TOKEN` = a valid Meta-generated system-user access token (secret)
+- `INSTAGRAM_USER_ID=17841430415668153`
 - `INSTAGRAM_GRAPH_VERSION=v27.0`
+- `MEDIA_ACCESS_KEY` = a long, unique private key used only by the site owner to open the private Instagram section
 
-If Meta's current dashboard instead gives you a direct Instagram Login user token, set `INSTAGRAM_API_MODE=instagram_login`; that mode uses `graph.instagram.com/me/media`. Do not mix the two token types or API hosts.
+For an Instagram Login user token instead, set `INSTAGRAM_API_MODE=instagram_login` and use the corresponding Instagram Login token. Do not mix token types and API hosts.
 
-**Never put a real access token, App Secret, or password in GitHub files, screenshots, or chat.** The token value appeared partly visible in a previous Render screenshot. Treat it as exposed: revoke/regenerate it in Meta, then replace the Render `INSTAGRAM_ACCESS_TOKEN` value with the new token.
+Never put a real access token, App Secret, password, or `MEDIA_ACCESS_KEY` in GitHub files, screenshots, or chat. A previous screenshot showed part of a token; revoke it in Meta and use a fresh one in Render.
 
 ## API endpoints
 
 - `GET /api/health` — health check.
 - `GET /api/providers` — reports configured provider status.
-- `GET /api/instagram/media?limit=15` — lists media for the authorized Instagram Professional account. Requires `Authorization: Bearer <MEDIA_ACCESS_KEY>`. Both the private key and Meta token stay out of GitHub.
-- `POST /api/resolve` — validates a URL and rejects unsupported social post URLs.
+- `GET /api/instagram/media?limit=15` — private owner endpoint; requires `Authorization: Bearer <MEDIA_ACCESS_KEY>`. The Meta token remains on the server.
+- `POST /api/resolve` — checks that a URL is HTTP(S), rejects social post pages, and validates a supported media-file extension. It does not download the URL or guarantee that the remote file exists.
 
-The media endpoint returns fields Meta makes available, which may include `media_url` and `thumbnail_url`. Media URLs can expire or be unavailable depending on Meta's response and access permissions.
+## Platform and rights limitations
 
-This is not a downloader for arbitrary public Instagram accounts or other people's Reels. Only use your own content or media you have permission to save. It does not bypass private-account restrictions, login walls, DRM, or platform controls. Public/production access may require Meta App Review and additional permissions.
+Instagram's official API is for authorized Professional accounts; it does not provide a general-purpose download API for arbitrary public Reels. Meta may omit media URLs for restricted media. YouTube and Facebook post URLs are not direct media-file URLs. Use platform-provided download/export options and save only files you own or have permission to use. This project does not scrape public accounts, bypass logins, DRM, or platform restrictions.
 
-## Frontend
+## GitHub Pages
 
-The frontend files (`index.html`, `style.css`, `script.js`, `app-config.js`) are in the repository root for GitHub Pages. `app-config.js` points to the Render API.
+Publish the static site from the branch/folder containing `index.html`. The root files include `index.html`, `style.css`, `script.js`, and `app-config.js`. The front end calls the Render API configured in `app-config.js`.
 
-If the browser reports `Failed to fetch`, check:
-1. Render service is Live and has deployed the latest commit.
-2. `ALLOWED_ORIGINS` contains exactly `https://ravivadhiya11.github.io` (origin only, no repository path).
-3. The site is opened over HTTPS.
-4. The browser can open `/api/health` and the page is not showing a stale cached script.
+## Public launch and advertising
+
+Before applying for an ad network, ensure the site has useful original content, clear Privacy/Terms/Contact pages, working tools, and no infringing download functionality. Do not place ads near controls in a way that may cause accidental clicks. Ad approval and earnings are not guaranteed.
