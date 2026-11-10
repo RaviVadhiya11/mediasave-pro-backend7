@@ -283,16 +283,35 @@
           actionBox.id = 'direct-link-action';
           actionBox.className = 'direct-link-action';
 
+          const downloadForm = document.createElement('form');
+          downloadForm.method = 'POST';
+          downloadForm.action = base + '/api/download';
+          downloadForm.target = '_blank';
+          downloadForm.className = 'download-proxy-form';
+
+          const urlField = document.createElement('input');
+          urlField.type = 'hidden';
+          urlField.name = 'url';
+          urlField.value = response.data.url;
+          downloadForm.appendChild(urlField);
+
+          const downloadButton = document.createElement('button');
+          downloadButton.type = 'submit';
+          downloadButton.className = 'submit direct-download-button';
+          downloadButton.textContent = 'Download file ↓';
+          downloadForm.appendChild(downloadButton);
+          actionBox.appendChild(downloadForm);
+
           const openLink = document.createElement('a');
           openLink.href = response.data.url;
           openLink.target = '_blank';
           openLink.rel = 'noopener noreferrer';
-          openLink.textContent = 'Open / save original media file';
-          openLink.className = 'submit direct-open-link';
+          openLink.textContent = 'Open original source';
+          openLink.className = 'direct-source-link';
           actionBox.appendChild(openLink);
 
           const note = document.createElement('p');
-          note.textContent = 'The source host decides whether the browser downloads or previews the file. MediaSave Pro does not change the original resolution.';
+          note.textContent = 'Downloads direct HTTPS media files up to 100 MB. The source must permit access and return the file without redirects. This tool does not download social-media post pages.';
           actionBox.appendChild(note);
           result.appendChild(actionBox);
           recordHistory('Direct media', response.data.filename || 'Direct media link checked');
