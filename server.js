@@ -233,7 +233,7 @@ app.post('/api/download', downloadLimiter, async (req, res) => {
     return res.status(400).json({ error: 'IP-address URLs are not accepted. Use the original public HTTPS media hostname.' });
   }
 
-  const hostname = target.hostname.toLowerCase().replace(/\\.$/, '');
+  const hostname = target.hostname.toLowerCase().replace(/\.$/, '');
   const isPlatformHost = hostname === 'instagram.com' || hostname.endsWith('.instagram.com') ||
     hostname === 'youtube.com' || hostname.endsWith('.youtube.com') || hostname === 'youtu.be' ||
     hostname === 'facebook.com' || hostname.endsWith('.facebook.com') || hostname === 'fb.watch' ||
@@ -251,7 +251,7 @@ app.post('/api/download', downloadLimiter, async (req, res) => {
   } catch {
     return res.status(400).json({ error: 'The media URL path is malformed.' });
   }
-  const match = pathname.match(/\\.([a-z0-9]{2,5})$/i);
+  const match = pathname.match(/\.([a-z0-9]{2,5})$/i);
   const extension = match ? match[1].toLowerCase() : '';
   if (!MEDIA_EXTENSIONS.has(extension)) {
     return res.status(422).json({
