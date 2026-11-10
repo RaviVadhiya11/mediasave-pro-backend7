@@ -1,0 +1,9 @@
+{
+  "name": "MediaSave Pro",
+  "short_name": "MediaSave",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7faf9",
+  "theme_color": "#ffffff",
+  "description": "Simple direct media saver and official platform save guide."
+}
