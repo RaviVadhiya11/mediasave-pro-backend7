@@ -59,9 +59,11 @@ app.get('/api/providers', (_req, res) => {
         id: 'instagram',
         status: !process.env.INSTAGRAM_ACCESS_TOKEN
           ? 'not-configured'
-          : ((process.env.INSTAGRAM_API_MODE || 'unified') === 'unified' && !process.env.INSTAGRAM_USER_ID)
-            ? 'needs-account-id'
-            : 'configured',
+          : !process.env.MEDIA_ACCESS_KEY
+            ? 'needs-private-access-key'
+            : ((process.env.INSTAGRAM_API_MODE || 'unified') === 'unified' && !process.env.INSTAGRAM_USER_ID)
+              ? 'needs-account-id'
+              : 'configured',
         method: (process.env.INSTAGRAM_API_MODE || 'unified') === 'unified'
           ? 'meta-unified-login-system-user-token'
           : 'instagram-login-user-token',
