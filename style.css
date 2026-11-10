@@ -56,3 +56,6 @@ body.light-theme .platform-guide-card{background:#fff;border-color:#e0d5ed}body.
 .ig-download-form{display:inline-flex;margin:0}.ig-download-button{font:600 10px 'DM Sans';color:#fff;background:linear-gradient(110deg,#8051e9,#a553db);border:1px solid #8d5ce0;border-radius:8px;padding:8px 10px;cursor:pointer}
 body.light-theme .direct-source-link{color:#7044a6}
 body.light-theme .ig-download-button{color:#fff}
+
+
+.sample-link-button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #594477;border-radius:10px;padding:12px 16px;background:#21172e;color:#d6bcff;font:600 12px 'DM Sans';cursor:pointer;margin:0 0 12px}.sample-link-button:active{transform:translateY(1px)}body.light-theme .sample-link-button{background:#f1e9fb;border-color:#d6c5eb;color:#573c83}
