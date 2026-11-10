@@ -108,8 +108,54 @@ async function processBackgroundRemoval(file){
   return{blob,width:canvas.width,height:canvas.height,type};
  }finally{URL.revokeObjectURL(sourceUrl)}
 }
-async function processUpscale(file){status.textContent='Preparing image for AI…';const image=await loadImage(file);const sw=image.naturalWidth||image.width,sh=image.naturalHeight||image.height;const maxEdge=768,ratio=Math.min(1,maxEdge/Math.max(sw,sh));const c=makeCanvas(Math.max(1,Math.round(sw*ratio)),Math.max(1,Math.round(sh*ratio)));c.getContext('2d').drawImage(image,0,0,c.width,c.height);const inputBlob=await exportCanvas(c,'image/png');status.textContent='Loading AI upscaler model… First download can be around 20 MB or more.';const pipe=await getUpscalePipeline();const url=URL.createObjectURL(inputBlob);try{status.textContent='AI upscaling 4× on your device. Keep this tab open…';const output=await pipe(url);const canvas=output.toCanvas();const type=$('format').value;const blob=await exportCanvas(canvas,type,.94);return{blob,width:canvas.width,height:canvas.height,type}}finally{URL.revokeObjectURL(url)}}
-if(processBtn)processBtn.addEventListener('click',async()=>{if(!selectedFiles.length){status.textContent='Choose an image first.';return}results.replaceChildren();processBtn.disabled=true;let ok=0;try{if(tool==='ai-background-remover'||tool==='ai-upscaler'){if(selectedFiles.length>1)status.textContent='AI tools work on one image at a time. The first selected image will be processed.';const file=selectedFiles[0];try{const result=tool==='ai-background-remover'?await processBackgroundRemoval(file):await processUpscale(file);addResult(file,result);ok=1}catch(e){status.textContent='AI processing failed: '+e.message}if(ok)status.textContent='AI processing complete. Download your result below.';processBtn.disabled=false;return}status.textContent='Processing '+selectedFiles.length+' image(s)…';for(const file of selectedFiles){try{if(tool==='color-palette'){drawPalette(await loadImage(file));ok++;continue}const result=await processImage(file);addResult(file,result);ok++}catch(e){const p=document.createElement('p');p.className='error-note';p.textContent=file.name+': '+e.message;results.appendChild(p)}}status.textContent='Finished: '+ok+' of '+selectedFiles.length+' image(s) processed.'}finally{processBtn.disabled=false}});
+function imageOutputToCanvas(value){
+ const raw=Array.isArray(value)?value[0]:value;
+ if(!raw)throw new Error('The AI model returned no image.');
+ if(typeof raw.toCanvas==='function')return raw.toCanvas();
+ const data=raw.data,width=Number(raw.width),height=Number(raw.height),channels=Number(raw.channels);
+ if(!data||!Number.isInteger(width)||!Number.isInteger(height)||![1,2,3,4].includes(channels))throw new Error('The AI upscaler returned an unsupported image format. Please retry or use a smaller photo.');
+ if(width<1||height<1||width*height>40000000)throw new Error('The AI result is too large for this phone to display. Try a smaller original image.');
+ if(data.length!==width*height*channels)throw new Error('The AI result pixel data is incomplete. Please retry.');
+ let normalized=false;
+ if(data instanceof Float32Array||data instanceof Float64Array){let max=0;for(let i=0;i<Math.min(data.length,4096);i++)if(data[i]>max)max=data[i];normalized=max<=1.01}
+ const rgba=new Uint8ClampedArray(width*height*4);
+ for(let src=0,dst=0;src<data.length;src+=channels,dst+=4){
+  const cv=n=>Math.max(0,Math.min(255,Math.round(Number(n)*(normalized?255:1))));
+  if(channels===1){const v=cv(data[src]);rgba[dst]=v;rgba[dst+1]=v;rgba[dst+2]=v;rgba[dst+3]=255}
+  else if(channels===2){const v=cv(data[src]);rgba[dst]=v;rgba[dst+1]=v;rgba[dst+2]=v;rgba[dst+3]=cv(data[src+1])}
+  else{rgba[dst]=cv(data[src]);rgba[dst+1]=cv(data[src+1]);rgba[dst+2]=cv(data[src+2]);rgba[dst+3]=channels===4?cv(data[src+3]):255}
+ }
+ const canvas=makeCanvas(width,height),ctx=canvas.getContext('2d');
+ ctx.putImageData(new ImageData(rgba,width,height),0,0);
+ return canvas;
+}
+function readableAIError(error){
+ if(error instanceof Error)return error.message||error.name||'Unknown browser AI error';
+ if(typeof error==='string')return error;
+ if(error&&typeof error==='object'){
+  if(typeof error.message==='string'&&error.message)return error.message;
+  try{return JSON.stringify(error)}catch(_){}
+ }
+ return 'Unknown AI error. Check your internet connection, reload the page and try a smaller image.';
+}
+async function processUpscale(file){
+ status.textContent='Preparing image for AI…';
+ const image=await loadImage(file),sw=image.naturalWidth||image.width,sh=image.naturalHeight||image.height;
+ const maxEdge=768,ratio=Math.min(1,maxEdge/Math.max(sw,sh));
+ const c=makeCanvas(Math.max(1,Math.round(sw*ratio)),Math.max(1,Math.round(sh*ratio)));
+ c.getContext('2d').drawImage(image,0,0,c.width,c.height);
+ const inputBlob=await exportCanvas(c,'image/png');
+ status.textContent='Loading AI upscaler model… The first download is about 20–55 MB. Keep this tab open.';
+ const pipe=await getUpscalePipeline(),url=URL.createObjectURL(inputBlob);
+ try{
+  status.textContent='AI upscaling 4× on this device…';
+  const output=await pipe(url);
+  const canvas=imageOutputToCanvas(output);
+  const type=$('format').value,blob=await exportCanvas(canvas,type,.94);
+  return{blob,width:canvas.width,height:canvas.height,type};
+ }finally{URL.revokeObjectURL(url)}
+}
+if(processBtn)processBtn.addEventListener('click',async()=>{if(!selectedFiles.length){status.textContent='Choose an image first.';return}results.replaceChildren();processBtn.disabled=true;let ok=0;try{if(tool==='ai-background-remover'||tool==='ai-upscaler'){if(selectedFiles.length>1)status.textContent='AI tools work on one image at a time. The first selected image will be processed.';const file=selectedFiles[0];try{const result=tool==='ai-background-remover'?await processBackgroundRemoval(file):await processUpscale(file);addResult(file,result);ok=1}catch(e){console.error('PixelNest AI processing error:',e);status.textContent='AI processing failed: '+readableAIError(e)}if(ok)status.textContent='AI processing complete. Download your result below.';processBtn.disabled=false;return}status.textContent='Processing '+selectedFiles.length+' image(s)…';for(const file of selectedFiles){try{if(tool==='color-palette'){drawPalette(await loadImage(file));ok++;continue}const result=await processImage(file);addResult(file,result);ok++}catch(e){const p=document.createElement('p');p.className='error-note';p.textContent=file.name+': '+e.message;results.appendChild(p)}}status.textContent='Finished: '+ok+' of '+selectedFiles.length+' image(s) processed.'}finally{processBtn.disabled=false}});
 if($('year'))$('year').textContent=new Date().getFullYear();
 if(tool==='color-palette')processBtn.textContent='Extract colours';
 if(tool==='metadata-cleaner')processBtn.textContent='Remove metadata & create clean copy';
