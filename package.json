@@ -1,8 +1,8 @@
 {
   "name": "mediasave-pro-api",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "private": true,
-  "description": "Hybrid public media tools with official platform guides and private authorized creator media",
+  "description": "Hybrid media tools with secure streamed direct-file downloads and private authorized creator media",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
