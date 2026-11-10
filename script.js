@@ -135,10 +135,23 @@
     card.appendChild(playButton);
 
     let captured = false;
+    let directFallbackTried = false;
     const showFallback = message => {
       previewStatus.textContent = message;
       video.hidden = false;
       playButton.hidden = true;
+      video.controls = true;
+    };
+    const tryDirectBrowserPreview = () => {
+      if (directFallbackTried) {
+        showFallback('This source could not be previewed in this browser. You can still try Download file below.');
+        return;
+      }
+      directFallbackTried = true;
+      previewStatus.textContent = 'Server preview unavailable. Trying direct browser playback…';
+      video.removeAttribute('crossorigin');
+      video.src = safeUrl;
+      video.load();
     };
 
     const captureThumbnail = () => {
@@ -175,8 +188,12 @@
     video.addEventListener('loadeddata', captureThumbnail, { once: true });
     video.addEventListener('seeked', captureThumbnail, { once: true });
     video.addEventListener('error', () => {
-      showFallback('Video preview could not load. Check that the source is a direct MP4/WebM file and allows server requests.');
-    }, { once: true });
+      if (!directFallbackTried) {
+        tryDirectBrowserPreview();
+      } else {
+        showFallback('This source could not be previewed in this browser. You can still try Download file below.');
+      }
+    });
 
     playButton.addEventListener('click', () => {
       thumbnail.hidden = true;
