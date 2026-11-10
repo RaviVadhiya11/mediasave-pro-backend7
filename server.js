@@ -139,7 +139,7 @@ app.get('/api/instagram/media', async (req, res) => {
     const url = new URL(`https://${graphHost}/${version}${edge}`);
     url.searchParams.set(
       'fields',
-      'id,caption,media_type,media_url,permalink,timestamp,thumbnail_url'
+      'id,caption,media_type,media_url,permalink,timestamp,thumbnail_url,children{media_type,media_url,thumbnail_url,permalink}'
     );
     url.searchParams.set('limit', String(limit));
 
@@ -164,6 +164,12 @@ app.get('/api/instagram/media', async (req, res) => {
       media_type: item.media_type || 'UNKNOWN',
       media_url: item.media_url || null,
       thumbnail_url: item.thumbnail_url || null,
+      children: Array.isArray(item.children?.data) ? item.children.data.map(child => ({
+        media_type: child.media_type || 'UNKNOWN',
+        media_url: child.media_url || null,
+        thumbnail_url: child.thumbnail_url || null,
+        permalink: child.permalink || item.permalink || null
+      })) : [],
       permalink: item.permalink || null,
       timestamp: item.timestamp || null
     })) : [];
