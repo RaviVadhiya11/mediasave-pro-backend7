@@ -225,6 +225,9 @@
         download.textContent = 'Download file ↓';
         download.className = 'ig-download-button';
         downloadForm.appendChild(download);
+        downloadForm.addEventListener('submit', () => {
+          recordHistory('Instagram download started', item.media_type || 'Authorized media file');
+        });
         links.appendChild(downloadForm);
       } else {
         addText(body, 'p', 'ig-item-unavailable',
@@ -286,10 +289,22 @@
           body: JSON.stringify({ url: value })
         });
 
-        output.textContent = JSON.stringify(response.data, null, 2);
         if (!response.ok) {
-          output.textContent += '\\nHTTP status: ' + response.status;
+          output.textContent = (response.data.error || 'The link could not be processed.') +
+            (response.data.guidance ? '\\n' + response.data.guidance : '') +
+            '\\nHTTP status: ' + response.status;
         } else if (response.data.status === 'validated' && response.data.url) {
+          output.textContent = 'DIRECT MEDIA FILE VERIFIED\\n' +
+            (response.data.filename || 'Media file') +
+            '\\nTap “Download file” below to save it to your device.';
+        if (response.ok && response.data.status === 'platform-guide') {
+          output.textContent = (response.data.platformName || 'Social platform') +
+            ' LINK DETECTED\\nThis is a post page, not a direct media file. Follow the official save instructions below.';
+        } else {
+          output.textContent = response.data.message || 'Link checked.';
+        }
+
+        if (response.ok && response.data.status === 'validated' && response.data.url) {
           const actionBox = document.createElement('div');
           actionBox.id = 'direct-link-action';
           actionBox.className = 'direct-link-action';
@@ -311,6 +326,9 @@
           downloadButton.className = 'submit direct-download-button';
           downloadButton.textContent = 'Download file ↓';
           downloadForm.appendChild(downloadButton);
+          downloadForm.addEventListener('submit', () => {
+            recordHistory('Download started', response.data.filename || 'Direct media file');
+          });
           actionBox.appendChild(downloadForm);
 
           const openLink = document.createElement('a');
@@ -325,7 +343,6 @@
           note.textContent = 'Downloads direct HTTPS media files up to 100 MB. The source must permit access and return the file without redirects. This tool does not download social-media post pages.';
           actionBox.appendChild(note);
           result.appendChild(actionBox);
-          recordHistory('Direct media', response.data.filename || 'Direct media link checked');
         } else if (response.data.status === 'platform-guide') {
           const guideBox = document.createElement('div');
           guideBox.id = 'direct-link-action';
