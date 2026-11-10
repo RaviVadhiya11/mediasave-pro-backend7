@@ -264,7 +264,7 @@
       submitButton.disabled = true;
       submitButton.firstChild.textContent = ' Checking…';
       result.hidden = false;
-      output.textContent = 'Checking direct media link…';
+      output.textContent = 'Checking link…';
 
       const previousAction = document.getElementById('direct-link-action');
       if (previousAction) previousAction.remove();
@@ -287,15 +287,54 @@
           openLink.href = response.data.url;
           openLink.target = '_blank';
           openLink.rel = 'noopener noreferrer';
-          openLink.textContent = 'Open / save direct file';
+          openLink.textContent = 'Open / save original media file';
           openLink.className = 'submit direct-open-link';
           actionBox.appendChild(openLink);
 
           const note = document.createElement('p');
-          note.textContent = 'The source host controls whether the browser downloads the file or opens a preview. If it opens a video, use the browser player menu to save it when available.';
+          note.textContent = 'The source host decides whether the browser downloads or previews the file. MediaSave Pro does not change the original resolution.';
           actionBox.appendChild(note);
           result.appendChild(actionBox);
-          recordHistory('Direct link', response.data.filename || 'Media file link checked');
+          recordHistory('Direct media', response.data.filename || 'Direct media link checked');
+        } else if (response.data.status === 'platform-guide') {
+          const guideBox = document.createElement('div');
+          guideBox.id = 'direct-link-action';
+          guideBox.className = 'platform-result-guide';
+
+          addText(guideBox, 'div', 'platform-result-kicker', response.data.platformName || 'Platform');
+          addText(guideBox, 'h3', 'platform-result-title', response.data.title || 'Official save options');
+
+          const list = document.createElement('ol');
+          list.className = 'platform-result-steps';
+          (Array.isArray(response.data.instructions) ? response.data.instructions : []).forEach(step => {
+            addText(list, 'li', '', step);
+          });
+          guideBox.appendChild(list);
+
+          const links = document.createElement('div');
+          links.className = 'ig-item-links';
+          const originalUrl = safeHttpUrl(response.data.originalUrl);
+          const helpUrl = safeHttpUrl(response.data.helpUrl);
+          if (originalUrl) {
+            const original = document.createElement('a');
+            original.href = originalUrl;
+            original.target = '_blank';
+            original.rel = 'noopener noreferrer';
+            original.textContent = 'Open original post';
+            links.appendChild(original);
+          }
+          if (helpUrl) {
+            const help = document.createElement('a');
+            help.href = helpUrl;
+            help.target = '_blank';
+            help.rel = 'noopener noreferrer';
+            help.textContent = 'Official help';
+            links.appendChild(help);
+          }
+          guideBox.appendChild(links);
+          addText(guideBox, 'p', 'platform-result-note', response.data.note || 'Only save content you own or have permission to use.');
+          result.appendChild(guideBox);
+          recordHistory('Platform guide', response.data.platformName || response.data.platform || 'Social link checked');
         }
       } catch (error) {
         output.textContent = error.message;
@@ -477,7 +516,7 @@
         const mimeType = candidates.find(type => MediaRecorder.isTypeSupported(type));
         if (!mimeType) throw new Error('This browser cannot encode WebM video.');
 
-        const bitrate = maxDimension >= 720 ? 1800000 : 900000;
+        const bitrate = maxDimension >= 2160 ? 18000000 : maxDimension >= 1440 ? 10000000 : maxDimension >= 1080 ? 6000000 : maxDimension >= 720 ? 3500000 : 1800000;
         const recorder = new MediaRecorder(canvasStream, { mimeType, videoBitsPerSecond: bitrate });
         const chunks = [];
         recorder.ondataavailable = event => {
@@ -525,9 +564,9 @@
         const blob = new Blob(chunks, { type: 'video/webm' });
         if (!blob.size) throw new Error('No output was created. Try another video file.');
         const originalName = (videoInput.files[0].name || 'video').replace(/\.[^.]+$/, '');
-        const outputName = originalName + '-mediasave.webm';
+        const outputName = originalName + '-mediasave-' + maxDimension + 'p.webm';
         addVideoDownload(blob, outputName, 'Download converted WebM · ' + (blob.size / (1024 * 1024)).toFixed(1) + ' MB');
-        showVideoStatus('Finished. Your converted video was created on this device; it was not uploaded.', 'video-success');
+        showVideoStatus('Finished. Output is capped at ' + maxDimension + 'p and never upscales beyond the source resolution. It was created on this device, not uploaded.', 'video-success');
         recordHistory('Video tool', outputName);
       } catch (error) {
         showVideoStatus(error.message || 'Video conversion failed.', 'video-error');
