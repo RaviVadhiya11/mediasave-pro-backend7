@@ -34,7 +34,8 @@ app.use(cors({
     return callback(new Error('Origin not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
+  exposedHeaders: ['Accept-Ranges', 'Content-Range', 'Content-Length']
 }));
 app.options('*', cors({
   origin(origin, callback) {
@@ -376,6 +377,10 @@ app.post('/api/download', downloadLimiter, async (req, res) => {
 
 
 app.get('/api/preview', previewLimiter, async (req, res) => {
+  const requestOrigin = req.get('Origin');
+  if (requestOrigin && !allowedOrigins.has(requestOrigin)) {
+    return res.status(403).json({ error: 'Video preview is available only from the MediaSave Pro website.' });
+  }
   const raw = String(req.query.url || '').trim();
   if (!raw || raw.length > 2048) {
     return res.status(400).json({ error: 'Provide a direct video-file URL (maximum 2048 characters).' });
