@@ -48,6 +48,7 @@ app.options('*', cors({
 app.use(express.json({ limit: '20kb' }));
 app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 const downloadLimiter = rateLimit({ windowMs: 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Download limit reached. Please wait one minute and try again.' } });
+const previewLimiter = rateLimit({ windowMs: 60 * 1000, limit: 15, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Preview limit reached. Please wait one minute and try again.' } });
 app.use('/api/', rateLimit({
   windowMs: 60 * 1000,
   limit: 60,
@@ -369,6 +370,131 @@ app.post('/api/download', downloadLimiter, async (req, res) => {
     } else if (!res.destroyed) {
       res.destroy();
     }
+  });
+  upstreamRequest.end();
+});
+
+
+app.get('/api/preview', previewLimiter, async (req, res) => {
+  const raw = String(req.query.url || '').trim();
+  if (!raw || raw.length > 2048) {
+    return res.status(400).json({ error: 'Provide a direct video-file URL (maximum 2048 characters).' });
+  }
+
+  let target;
+  try { target = new URL(raw); }
+  catch { return res.status(400).json({ error: 'Invalid video URL.' }); }
+
+  if (target.protocol !== 'https:' || target.username || target.password ||
+      (target.port && target.port !== '443') || net.isIP(target.hostname)) {
+    return res.status(400).json({ error: 'Only public HTTPS video URLs on port 443 are supported.' });
+  }
+
+  const hostname = target.hostname.toLowerCase().replace(/\.$/, '');
+  const isSocialHost = hostname === 'instagram.com' || hostname.endsWith('.instagram.com') ||
+    hostname === 'youtube.com' || hostname.endsWith('.youtube.com') || hostname === 'youtu.be' ||
+    hostname === 'facebook.com' || hostname.endsWith('.facebook.com') || hostname === 'fb.watch' ||
+    hostname === 'snapchat.com' || hostname.endsWith('.snapchat.com');
+  if (isSocialHost) {
+    return res.status(422).json({ error: 'A social post URL is not a direct video file. Preview is available only for permitted direct video URLs.' });
+  }
+
+  let pathname;
+  try { pathname = decodeURIComponent(target.pathname); }
+  catch { return res.status(400).json({ error: 'The video URL path is malformed.' }); }
+  const extensionMatch = pathname.match(/\.([a-z0-9]{2,5})$/i);
+  const extension = extensionMatch ? extensionMatch[1].toLowerCase() : '';
+  const videoExtensions = new Set(['mp4','m4v','webm','mov','avi','mkv']);
+  if (!videoExtensions.has(extension)) {
+    return res.status(415).json({ error: 'Thumbnail preview supports direct video files only (MP4, M4V, WebM, MOV, AVI, MKV).' });
+  }
+
+  let addresses;
+  try { addresses = await dns.lookup(hostname, { all: true, verbatim: true, family: 4 }); }
+  catch { return res.status(502).json({ error: 'The video host could not be resolved.' }); }
+  const publicAddresses = addresses.filter(item => isPublicIPv4(item.address));
+  if (!publicAddresses.length || publicAddresses.length !== addresses.length) {
+    return res.status(400).json({ error: 'This video host does not resolve exclusively to public IPv4 addresses.' });
+  }
+
+  const range = String(req.get('Range') || '');
+  if (range && !/^bytes=(?:\d+-\d*|-\d+)$/.test(range)) {
+    return res.status(416).json({ error: 'Unsupported video byte range.' });
+  }
+
+  const requestOptions = {
+    protocol: 'https:',
+    hostname,
+    port: 443,
+    method: 'GET',
+    path: target.pathname + target.search,
+    servername: hostname,
+    timeout: 30000,
+    lookup: (_host, _options, callback) => callback(null, publicAddresses[0].address, 4),
+    headers: {
+      'User-Agent': 'MediaSavePro/3.5 (+video-thumbnail-preview)',
+      'Accept': 'video/*,application/octet-stream;q=0.9',
+      ...(range ? { Range: range } : {})
+    }
+  };
+
+  const upstreamRequest = https.request(requestOptions, upstream => {
+    if (upstream.statusCode >= 300 && upstream.statusCode < 400) {
+      upstream.resume();
+      return res.status(422).json({ error: 'The source redirected the video preview. Use the final direct HTTPS video-file URL.' });
+    }
+    if (upstream.statusCode !== 200 && upstream.statusCode !== 206) {
+      upstream.resume();
+      return res.status(upstream.statusCode === 416 ? 416 : 502).json({
+        error: 'The source did not provide a previewable video file.',
+        sourceStatus: upstream.statusCode
+      });
+    }
+
+    const contentType = String(upstream.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    if (!(contentType.startsWith('video/') || contentType === 'application/octet-stream')) {
+      upstream.resume();
+      return res.status(415).json({ error: 'The source did not return a video content type.' });
+    }
+
+    const declaredLength = Number(upstream.headers['content-length'] || 0);
+    if (declaredLength > MEDIA_MAX_BYTES) {
+      upstream.resume();
+      return res.status(413).json({ error: 'Video preview is limited to files up to 100 MB.' });
+    }
+
+    res.status(upstream.statusCode);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Accept-Ranges', upstream.headers['accept-ranges'] || 'bytes');
+    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+    if (upstream.headers['content-range']) res.setHeader('Content-Range', upstream.headers['content-range']);
+
+    let total = 0;
+    upstream.on('data', chunk => {
+      total += chunk.length;
+      if (total > MEDIA_MAX_BYTES) {
+        upstream.destroy();
+        if (!res.destroyed) res.destroy(new Error('Preview exceeded 100 MB limit.'));
+      }
+    });
+    upstream.on('error', () => {
+      if (!res.headersSent) res.status(502).json({ error: 'The source video preview stream failed.' });
+      else if (!res.destroyed) res.destroy();
+    });
+    res.on('close', () => {
+      if (!res.writableEnded) upstream.destroy();
+    });
+    upstream.pipe(res);
+  });
+
+  upstreamRequest.on('timeout', () => upstreamRequest.destroy(new Error('Source preview timed out.')));
+  upstreamRequest.on('error', error => {
+    if (!res.headersSent && !res.destroyed) {
+      res.status(502).json({ error: error.code === 'ETIMEDOUT' ? 'Source video preview timed out.' : 'Could not open the video preview from its source host.' });
+    } else if (!res.destroyed) res.destroy();
   });
   upstreamRequest.end();
 });
