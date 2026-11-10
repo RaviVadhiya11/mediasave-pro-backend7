@@ -28,7 +28,7 @@ If Meta's current dashboard instead gives you a direct Instagram Login user toke
 
 - `GET /api/health` — health check.
 - `GET /api/providers` — reports configured provider status.
-- `GET /api/instagram/media?limit=15` — lists media for the authorized Instagram Professional account. The token remains on the server.
+- `GET /api/instagram/media?limit=15` — lists media for the authorized Instagram Professional account. Requires `Authorization: Bearer <MEDIA_ACCESS_KEY>`. Both the private key and Meta token stay out of GitHub.
 - `POST /api/resolve` — validates a URL and rejects unsupported social post URLs.
 
 The media endpoint returns fields Meta makes available, which may include `media_url` and `thumbnail_url`. Media URLs can expire or be unavailable depending on Meta's response and access permissions.
