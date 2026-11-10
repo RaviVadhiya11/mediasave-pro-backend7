@@ -1,27 +1,37 @@
-# MediaSave Pro API — v3
+# MediaSave Pro API — v3.1
 
-This is a small Node.js API starter, separate from GitHub Pages.
+Node.js API backend for the MediaSave Pro GitHub Pages frontend.
 
-## Run locally
-1. Install Node.js 18 or newer.
-2. In this folder run `npm install`.
-3. Copy `.env.example` to `.env` and adjust `ALLOWED_ORIGINS`.
-4. Run `npm start`.
-5. Test `http://localhost:3000/api/health`.
+## Deploy on Render
 
-## Deploy
-Deploy this folder as a Node web service on a Node-compatible host. Set:
+- Runtime: Node
 - Build command: `npm install`
 - Start command: `npm start`
-- `ALLOWED_ORIGINS=https://vivadhiya11.github.io`
+- Set `ALLOWED_ORIGINS=https://vivadhiya11.github.io` in Render Environment.
+- For Instagram media listing, set `INSTAGRAM_ACCESS_TOKEN` in Render Environment.
+- Optional: set `INSTAGRAM_GRAPH_VERSION=v27.0` (the server defaults to v27.0).
 
-After deployment, edit `frontend/app-config.js`:
-`API_BASE_URL: "https://YOUR-BACKEND-HOST"`
+**Never put a real Instagram access token, App Secret, or password in GitHub files or chat.** If a token was exposed in a screenshot, revoke it in Meta and generate a new one before use.
 
 ## API endpoints
-- `GET /api/health` — health check
-- `GET /api/providers` — reports integration status
-- `POST /api/resolve` — validates URL type and intentionally rejects social post URLs
 
-## Important limitations
-The backend is not a downloader or social-media extractor. Instagram, YouTube and Facebook integrations are not configured. Add only official/authorized APIs and follow each platform's terms, copyright rules and developer policies. Do not use this service to bypass DRM, private accounts, login walls or access controls.
+- `GET /api/health` — health check.
+- `GET /api/providers` — reports configured provider status.
+- `GET /api/instagram/media?limit=15` — lists media for the Instagram Professional account that authorized the app. The token remains on the server.
+- `POST /api/resolve` — validates a URL and rejects unsupported social post URLs.
+
+## Instagram requirements
+
+This endpoint uses the Instagram API with Instagram Login and the `instagram_business_basic` permission. The account must be a Professional (Business or Creator) account and must have authorized the app. The endpoint returns the media fields that Meta makes available, which may include `media_url` and `thumbnail_url`; URLs can expire and availability depends on Meta's response and access level.
+
+This is not a downloader for arbitrary public Instagram accounts or other people's Reels. Only use your own content or media for which you have permission. Do not bypass private-account restrictions, login walls, DRM, or platform controls. For public production access, complete Meta's review and follow the current platform terms.
+
+## Frontend
+
+The frontend files (`index.html`, `style.css`, `script.js`, `app-config.js`) are also in the repository root for GitHub Pages. The API origin is configured in `app-config.js`.
+
+If the browser reports `Failed to fetch`, check:
+1. Render service is Live.
+2. `ALLOWED_ORIGINS` contains exactly `https://vivadhiya11.github.io` (origin only; no repository path).
+3. The browser is opening the HTTPS GitHub Pages site.
+4. Render has completed deployment of the latest commit.
