@@ -288,7 +288,11 @@ app.post('/api/download', downloadLimiter, async (req, res) => {
     path: target.pathname + target.search,
     servername: hostname,
     timeout: 30000,
-    lookup: (_host, _options, callback) => callback(null, pinnedAddress, 4),
+    lookup: (_host, options, callback) => {
+      const record = { address: pinnedAddress, family: 4 };
+      if (options && options.all) return callback(null, [record]);
+      return callback(null, record.address, record.family);
+    },
     headers: {
       'User-Agent': 'MediaSavePro/3.5 (+direct-media-download)',
       'Accept': 'video/*,audio/*,image/*,application/octet-stream;q=0.9,*/*;q=0.1'
@@ -435,7 +439,11 @@ app.get('/api/preview', previewLimiter, async (req, res) => {
     path: target.pathname + target.search,
     servername: hostname,
     timeout: 30000,
-    lookup: (_host, _options, callback) => callback(null, publicAddresses[0].address, 4),
+    lookup: (_host, options, callback) => {
+      const record = { address: publicAddresses[0].address, family: 4 };
+      if (options && options.all) return callback(null, [record]);
+      return callback(null, record.address, record.family);
+    },
     headers: {
       'User-Agent': 'MediaSavePro/3.5 (+video-thumbnail-preview)',
       'Accept': 'video/*,application/octet-stream;q=0.9',
