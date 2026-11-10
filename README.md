@@ -1,11 +1,11 @@
-# MediaSave Pro — v3.5
+# MediaSave Pro — v3.7
 
 A public hybrid media-tools website with a Node.js API backend.
 
 ## Public features
 
 - **Direct media-file download:** validates direct HTTPS URLs and streams supported MP4, M4V, WebM, MOV, AVI, MKV, MP3, M4A, WAV, OGG, Opus, JPG, PNG, GIF, WebP or AVIF files from the original host to the visitor as an attachment.
-- **Video thumbnail preview:** for direct video-file URLs, the API streams byte-range video previews to the browser; the browser extracts a thumbnail frame locally. No thumbnail is saved on the server. Public DNS-resolvable IPv4 host only, HTTPS port 443, no redirects, supported video extension and video MIME type, 100 MB maximum and per-IP limits apply.
+- **Video thumbnail preview:** for direct video-file URLs, the API streams byte-range video previews to the browser; the browser extracts a thumbnail frame locally. If the proxy preview fails, the page attempts native browser playback as a fallback. No thumbnail is saved on the server. Public DNS-resolvable IPv4 host only, HTTPS port 443, no redirects, supported video extension and video MIME type, 100 MB maximum and per-IP limits apply.
 - **Download constraints:** public DNS-resolvable IPv4 host only, HTTPS port 443, no redirects, supported media extension and media MIME type required, 100 MB per file, and a per-IP request limit. This is not a general URL proxy. Some hosts may block server requests.
 - **Platform link guide:** identifies Instagram, YouTube, Facebook and Snapchat post links, then shows official save/export steps and an Open Original option. It does not extract arbitrary social posts.
 - **Browser video tools:** selects a local video and creates a WebM output capped at 480p, 720p, 1080p, 1440p (2K) or 2160p (4K), where the browser/device supports it. Output never upscales beyond the source dimensions and cannot create missing detail. 2K/4K processing can be too demanding for some phones.
