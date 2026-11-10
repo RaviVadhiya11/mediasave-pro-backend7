@@ -390,7 +390,7 @@
   const sampleUrlButton = $('sample-url');
   if (sampleUrlButton && urlInput) {
     sampleUrlButton.addEventListener('click', () => {
-      urlInput.value = 'https://pnb-freetoolsforweb.s3.us-east-2.amazonaws.com/samples/videos/mp4/sample-video-640x360-2mb.mp4';
+      urlInput.value = 'https://www.samplefiles.online/files/sample.mp4';
       urlInput.focus();
       result.hidden = true;
     });
