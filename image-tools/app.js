@@ -62,98 +62,117 @@ function drawPalette(img){const host=$('palette-results');host.replaceChildren()
 fileInput?.addEventListener('change',selected);
 async function loadTransformers(){return import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');}
 let bgPipelinePromise=null,upscalePipelinePromise=null;
-async function getBackgroundPipeline(){if(!bgPipelinePromise)bgPipelinePromise=(async()=>{const {pipeline,env}=await loadTransformers();env.allowLocalModels=false;env.useBrowserCache=true;return pipeline('background-removal','Xenova/modnet',{dtype:'fp32'});})();return bgPipelinePromise}
-async function getUpscalePipeline(){if(!upscalePipelinePromise)upscalePipelinePromise=(async()=>{const {pipeline,env}=await loadTransformers();env.allowLocalModels=false;env.useBrowserCache=true;return pipeline('image-to-image','onnx-community/swin2SR-realworld-sr-x4-64-bsrgan-psnr-ONNX',{dtype:'q4'});})();return upscalePipelinePromise}
-async function blobFromRawImage(raw){if(raw&&typeof raw.toBlob==='function')return raw.toBlob();if(raw&&typeof raw.toCanvas==='function')return exportCanvas(raw.toCanvas(),'image/png');throw new Error('The AI model returned an unsupported image result.')}
-async function processBackgroundRemoval(file){
- status.textContent='Preparing image for AI…';
- const decoded=await loadImage(file);
- const sw=decoded.naturalWidth||decoded.width,sh=decoded.naturalHeight||decoded.height;
- const scale=Math.min(1,1280/Math.max(sw,sh));
- const prepared=makeCanvas(Math.max(1,Math.round(sw*scale)),Math.max(1,Math.round(sh*scale)));
- prepared.getContext('2d').drawImage(decoded,0,0,prepared.width,prepared.height);
- const inputBlob=await exportCanvas(prepared,'image/png');
- status.textContent='Loading portrait AI model… The first download may take a while.';
- const pipe=await getBackgroundPipeline();
- const sourceUrl=URL.createObjectURL(inputBlob);
- try{
-  status.textContent='Creating the AI transparency mask…';
-  const output=await pipe(sourceUrl);
-  const raw=Array.isArray(output)?output[0]:output;
-  if(!raw||typeof raw.toCanvas!=='function')throw new Error('The AI model did not return an image mask. Please reload and retry.');
-  const maskSource=raw.toCanvas();
-  const w=prepared.width,h=prepared.height;
-  const maskCanvas=makeCanvas(w,h),maskCtx=maskCanvas.getContext('2d',{willReadFrequently:true});
-  maskCtx.drawImage(maskSource,0,0,w,h);
-  const maskPixels=maskCtx.getImageData(0,0,w,h).data;
-  const resultCanvas=makeCanvas(w,h),resultCtx=resultCanvas.getContext('2d',{willReadFrequently:true});
-  resultCtx.drawImage(prepared,0,0);
-  const imageData=resultCtx.getImageData(0,0,w,h);
-  for(let i=0;i<imageData.data.length;i+=4){
-   const r=maskPixels[i],g=maskPixels[i+1],b=maskPixels[i+2];
-   imageData.data[i+3]=Math.round((r+g+b)/3);
-  }
-  resultCtx.putImageData(imageData,0,0);
-  let canvas=resultCanvas;
-  const mode=$('bg-mode').value;
-  if(mode!=='transparent'){
-   const bg=makeCanvas(w,h),ctx=bg.getContext('2d');
-   ctx.fillStyle=mode==='white'?'#ffffff':$('bg-color').value;
-   ctx.fillRect(0,0,w,h);
-   ctx.drawImage(resultCanvas,0,0);
-   canvas=bg;
-  }
-  const type=mode==='transparent'?'image/png':'image/jpeg';
-  const blob=await exportCanvas(canvas,type,.94);
-  return{blob,width:canvas.width,height:canvas.height,type};
- }finally{URL.revokeObjectURL(sourceUrl)}
+async function getBackgroundPipeline(){
+ if(!bgPipelinePromise){
+  bgPipelinePromise=(async()=>{
+   const {pipeline,env}=await loadTransformers();
+   env.allowLocalModels=false;env.useBrowserCache=true;
+   return pipeline('background-removal','Xenova/modnet',{dtype:'fp32'});
+  })();
+  bgPipelinePromise=bgPipelinePromise.catch(error=>{bgPipelinePromise=null;throw error});
+ }
+ return bgPipelinePromise;
 }
-function imageOutputToCanvas(value){
+async function getUpscalePipeline(){
+ if(!upscalePipelinePromise){
+  upscalePipelinePromise=(async()=>{
+   const {pipeline,env}=await loadTransformers();
+   env.allowLocalModels=false;env.useBrowserCache=true;
+   if(env.backends&&env.backends.onnx&&env.backends.onnx.wasm)env.backends.onnx.wasm.numThreads=1;
+   return pipeline('image-to-image','Xenova/swin2SR-realworld-sr-x4-64-bsrgan-psnr',{dtype:'q4'});
+  })();
+  upscalePipelinePromise=upscalePipelinePromise.catch(error=>{upscalePipelinePromise=null;throw error});
+ }
+ return upscalePipelinePromise;
+}
+function rawImageToCanvas(value,label='AI model'){
  const raw=Array.isArray(value)?value[0]:value;
- if(!raw)throw new Error('The AI model returned no image.');
- if(typeof raw.toCanvas==='function')return raw.toCanvas();
+ if(!raw)throw new Error(label+' returned no image.');
  const data=raw.data,width=Number(raw.width),height=Number(raw.height),channels=Number(raw.channels);
- if(!data||!Number.isInteger(width)||!Number.isInteger(height)||![1,2,3,4].includes(channels))throw new Error('The AI upscaler returned an unsupported image format. Please retry or use a smaller photo.');
- if(width<1||height<1||width*height>40000000)throw new Error('The AI result is too large for this phone to display. Try a smaller original image.');
- if(data.length!==width*height*channels)throw new Error('The AI result pixel data is incomplete. Please retry.');
+ if(!data||!Number.isInteger(width)||!Number.isInteger(height)||![1,2,3,4].includes(channels))throw new Error(label+' returned an unsupported image format.');
+ if(width<1||height<1||width*height>20000000)throw new Error('The AI result is too large for this phone. Try a smaller image.');
+ if(data.length!==width*height*channels)throw new Error(label+' returned incomplete pixel data.');
+ const rgba=new Uint8ClampedArray(width*height*4);
  let normalized=false;
  if(data instanceof Float32Array||data instanceof Float64Array){let max=0;for(let i=0;i<Math.min(data.length,4096);i++)if(data[i]>max)max=data[i];normalized=max<=1.01}
- const rgba=new Uint8ClampedArray(width*height*4);
+ const byte=n=>Math.max(0,Math.min(255,Math.round(Number(n)*(normalized?255:1))));
  for(let src=0,dst=0;src<data.length;src+=channels,dst+=4){
-  const cv=n=>Math.max(0,Math.min(255,Math.round(Number(n)*(normalized?255:1))));
-  if(channels===1){const v=cv(data[src]);rgba[dst]=v;rgba[dst+1]=v;rgba[dst+2]=v;rgba[dst+3]=255}
-  else if(channels===2){const v=cv(data[src]);rgba[dst]=v;rgba[dst+1]=v;rgba[dst+2]=v;rgba[dst+3]=cv(data[src+1])}
-  else{rgba[dst]=cv(data[src]);rgba[dst+1]=cv(data[src+1]);rgba[dst+2]=cv(data[src+2]);rgba[dst+3]=channels===4?cv(data[src+3]):255}
+  if(channels===1){const v=byte(data[src]);rgba[dst]=v;rgba[dst+1]=v;rgba[dst+2]=v;rgba[dst+3]=255}
+  else if(channels===2){const v=byte(data[src]);rgba[dst]=v;rgba[dst+1]=v;rgba[dst+2]=v;rgba[dst+3]=byte(data[src+1])}
+  else{rgba[dst]=byte(data[src]);rgba[dst+1]=byte(data[src+1]);rgba[dst+2]=byte(data[src+2]);rgba[dst+3]=channels===4?byte(data[src+3]):255}
  }
  const canvas=makeCanvas(width,height),ctx=canvas.getContext('2d');
  ctx.putImageData(new ImageData(rgba,width,height),0,0);
  return canvas;
 }
 function readableAIError(error){
- if(error instanceof Error)return error.message||error.name||'Unknown browser AI error';
- if(typeof error==='string')return error;
+ if(error instanceof Error)return (error.name?error.name+': ':'')+(error.message||'No error message was supplied.');
+ if(typeof error==='string'&&error.trim())return error;
  if(error&&typeof error==='object'){
-  if(typeof error.message==='string'&&error.message)return error.message;
-  try{return JSON.stringify(error)}catch(_){}
+  const candidates=[error.message,error.error,error.cause,error.description,error.code].filter(v=>v!==undefined&&v!==null);
+  const details=candidates.map(v=>typeof v==='string'?v:(v&&v.message?String(v.message):'')).filter(Boolean);
+  if(details.length)return details.join(' — ');
+  try{const keys=Object.getOwnPropertyNames(error);const data={};for(const k of keys){try{data[k]=String(error[k]).slice(0,400)}catch(_){}}const json=JSON.stringify(data);if(json&&json!=='{}')return (error.constructor&&error.constructor.name?error.constructor.name+': ':'')+json.slice(0,900)}catch(_){}
+  try{const s=String(error);if(s&&s!=='[object Object]')return s}catch(_){}
  }
- return 'Unknown AI error. Check your internet connection, reload the page and try a smaller image.';
+ return 'The browser AI engine failed without a readable error. Check internet access, free phone storage and memory, then reload and retry with a smaller image.';
+}
+async function processBackgroundRemoval(file){
+ status.textContent='Preparing your original photo…';
+ const decoded=await loadImage(file),sw=decoded.naturalWidth||decoded.width,sh=decoded.naturalHeight||decoded.height;
+ const scale=Math.min(1,1024/Math.max(sw,sh));
+ const prepared=makeCanvas(Math.max(1,Math.round(sw*scale)),Math.max(1,Math.round(sh*scale)));
+ prepared.getContext('2d').drawImage(decoded,0,0,prepared.width,prepared.height);
+ const inputBlob=await exportCanvas(prepared,'image/png');
+ status.textContent='Downloading/loading the portrait AI model…';
+ const pipe=await getBackgroundPipeline();
+ status.textContent='Finding the subject and creating a transparent mask…';
+ const output=await pipe(inputBlob);
+ const raw=Array.isArray(output)?output[0]:output;
+ if(!raw||raw.channels!==4||!raw.data)throw new Error('The background model did not return its expected RGBA result. Please reload and retry.');
+ const maskCanvas=rawImageToCanvas(raw,'Background model');
+ const w=prepared.width,h=prepared.height;
+ const maskCtx=maskCanvas.getContext('2d',{willReadFrequently:true});
+ const alphaSource=maskCtx.getImageData(0,0,maskCanvas.width,maskCanvas.height);
+ const result=makeCanvas(w,h),ctx=result.getContext('2d',{willReadFrequently:true});
+ ctx.drawImage(prepared,0,0,w,h);
+ const original=ctx.getImageData(0,0,w,h);
+ const maskData=alphaSource.data;
+ for(let y=0;y<h;y++){
+  for(let x=0;x<w;x++){
+   const mi=(Math.min(maskCanvas.height-1,Math.floor(y*maskCanvas.height/h))*maskCanvas.width+Math.min(maskCanvas.width-1,Math.floor(x*maskCanvas.width/w)))*4;
+   original.data[(y*w+x)*4+3]=maskData[mi+3];
+  }
+ }
+ ctx.putImageData(original,0,0);
+ const mode=$('bg-mode').value;
+ let finalCanvas=result,type='image/png';
+ if(mode!=='transparent'){
+  finalCanvas=makeCanvas(w,h);
+  const bg=finalCanvas.getContext('2d');
+  bg.fillStyle=mode==='white'?'#ffffff':$('bg-color').value||'#ffffff';
+  bg.fillRect(0,0,w,h);bg.drawImage(result,0,0);
+  type='image/jpeg';
+ }
+ const blob=await exportCanvas(finalCanvas,type,.94);
+ return{blob,width:finalCanvas.width,height:finalCanvas.height,type};
 }
 async function processUpscale(file){
  status.textContent='Preparing image for AI…';
  const image=await loadImage(file),sw=image.naturalWidth||image.width,sh=image.naturalHeight||image.height;
- const maxEdge=768,ratio=Math.min(1,maxEdge/Math.max(sw,sh));
- const c=makeCanvas(Math.max(1,Math.round(sw*ratio)),Math.max(1,Math.round(sh*ratio)));
- c.getContext('2d').drawImage(image,0,0,c.width,c.height);
- const inputBlob=await exportCanvas(c,'image/png');
- status.textContent='Loading AI upscaler model… The first download is about 20–55 MB. Keep this tab open.';
- const pipe=await getUpscalePipeline(),url=URL.createObjectURL(inputBlob);
- try{
-  status.textContent='AI upscaling 4× on this device…';
-  const output=await pipe(url);
-  const canvas=imageOutputToCanvas(output);
-  const type=$('format').value,blob=await exportCanvas(canvas,type,.94);
-  return{blob,width:canvas.width,height:canvas.height,type};
- }finally{URL.revokeObjectURL(url)}
+ const maxEdge=640,ratio=Math.min(1,maxEdge/Math.max(sw,sh));
+ const input=makeCanvas(Math.max(1,Math.round(sw*ratio)),Math.max(1,Math.round(sh*ratio)));
+ input.getContext('2d').drawImage(image,0,0,input.width,input.height);
+ const inputBlob=await exportCanvas(input,'image/png');
+ status.textContent='Loading Swin2SR AI model (first use may take a minute)…';
+ const pipe=await getUpscalePipeline();
+ status.textContent='Enhancing the image 4× on your device… Keep this page open.';
+ const output=await pipe(inputBlob);
+ const canvas=rawImageToCanvas(output,'Swin2SR upscaler');
+ const expectedW=input.width*4,expectedH=input.height*4;
+ if(Math.abs(canvas.width-expectedW)>16||Math.abs(canvas.height-expectedH)>16)throw new Error('The AI model returned unexpected dimensions ('+canvas.width+' × '+canvas.height+'). Expected about '+expectedW+' × '+expectedH+'.');
+ const type=$('format').value,blob=await exportCanvas(canvas,type,.94);
+ return{blob,width:canvas.width,height:canvas.height,type};
 }
 if(processBtn)processBtn.addEventListener('click',async()=>{if(!selectedFiles.length){status.textContent='Choose an image first.';return}results.replaceChildren();processBtn.disabled=true;let ok=0;try{if(tool==='ai-background-remover'||tool==='ai-upscaler'){if(selectedFiles.length>1)status.textContent='AI tools work on one image at a time. The first selected image will be processed.';const file=selectedFiles[0];try{const result=tool==='ai-background-remover'?await processBackgroundRemoval(file):await processUpscale(file);addResult(file,result);ok=1}catch(e){console.error('PixelNest AI processing error:',e);status.textContent='AI processing failed: '+readableAIError(e)}if(ok)status.textContent='AI processing complete. Download your result below.';processBtn.disabled=false;return}status.textContent='Processing '+selectedFiles.length+' image(s)…';for(const file of selectedFiles){try{if(tool==='color-palette'){drawPalette(await loadImage(file));ok++;continue}const result=await processImage(file);addResult(file,result);ok++}catch(e){const p=document.createElement('p');p.className='error-note';p.textContent=file.name+': '+e.message;results.appendChild(p)}}status.textContent='Finished: '+ok+' of '+selectedFiles.length+' image(s) processed.'}finally{processBtn.disabled=false}});
 if($('year'))$('year').textContent=new Date().getFullYear();
