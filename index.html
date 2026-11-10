@@ -1,48 +1,130 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090910"><meta name="description" content="MediaSave Pro securely downloads permitted direct media files and offers browser-based video conversion, thumbnails and creator media tools."><meta name="robots" content="index,follow"><meta property="og:title" content="MediaSave Pro – Direct Media Downloader & Video Tools"><meta property="og:description" content="Secure direct media-file downloads, creator media tools, video conversion and thumbnails."><meta property="og:type" content="website"><title>MediaSave Pro – Direct Media Downloader & Video Tools</title><link rel="stylesheet" href="style.css?v=15"></head><body><header><a class="brand" href="#"><span class="logo">↧</span><span>MediaSave <b>Pro</b><small>VERSION 3.8 · ULTRA</small></span></a><div class="status"><i id="dot"></i> API <b id="api-status">CHECKING</b></div><button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch color theme">Light mode</button><nav class="top-nav"><a href="#direct-tools">Downloader</a><a href="#video-tools">Video Tools</a><a href="owner.html">My Media</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></nav></header><main><section class="hero"><div class="eyebrow">✦ YOUR MEDIA WORKSPACE</div><h1>Save what you <em>love.</em></h1><p>A premium toolkit for direct media files, private creator media and on-device video tools.</p><div class="platforms"><span><i class="ig">↗</i> Direct media files</span><span><i class="yt">▶</i> Video tools</span><span><i class="fb">◎</i> Private creator media</span></div></section><section class="panel" id="direct-tools"><div class="panel-head"><h2><small>01</small> Direct media downloader</h2><label>⌑ &nbsp; DOWNLOAD BY DIRECT URL</label></div><form id="form"><label class="field-label" for="url">MEDIA URL</label><div class="input-wrap"><b>↗</b><input id="url" type="url" placeholder="Direct MP4, WebM or MP3 file URL only…" autocomplete="off" value="" required><button type="button" id="clear" aria-label="Clear">×</button></div><div class="actions"><p>Paste a direct HTTPS MP4, WebM, MP3 or image file URL that you own or have permission to save. Instagram, YouTube, Facebook and Snapchat post links are not direct media files. Downloads support public HTTPS file links up to 100 MB; some hosts block server downloads.</p><button class="sample-link-button" id="sample-url" type="button">Use free sample MP4</button><button class="submit" id="submit" type="submit">Check link <b>→</b></button></div></form><div id="result" class="result" hidden><b>API RESPONSE</b><pre id="output"></pre></div></section>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>MediaSave Pro — Direct Media Downloader & Creator Tools</title>
+  <meta name="description" content="A simple mobile-friendly media saver for permitted direct video, audio and image links, with official save guidance for Instagram, YouTube, Facebook and Snapchat.">
+  <meta name="keywords" content="direct media downloader, video file downloader, Instagram Reels save guide, YouTube Shorts save guide, Facebook video, Snapchat Spotlight">
+  <link rel="canonical" href="https://ravivadhiya11.github.io/mediasave-pro-backend7/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="MediaSave Pro — Save media simply">
+  <meta property="og:description" content="Download permitted direct media files and find official save options for social platforms.">
+  <meta property="og:url" content="https://ravivadhiya11.github.io/mediasave-pro-backend7/">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%231c8b71'/%3E%3Cpath d='M32 12v27m-11-11 11 11 11-11M17 49h30' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css?v=1">
+  <script src="app-config.js"></script>
+  <script defer src="script.js?v=1"></script>
+</head>
+<body>
+  <div class="top-strip"><span class="status-dot" id="api-dot"></span><span id="api-status">Connecting to MediaSave Pro</span><span class="top-note">No account required</span></div>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="MediaSave Pro home">
+      <span class="brand-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4v17m-7-7 7 7 7-7M7 27h18" /></svg></span>
+      <span>MediaSave <b>Pro</b></span>
+    </a>
+    <nav class="desktop-nav" aria-label="Main navigation">
+      <a href="#how">How it works</a><a href="#platforms">Platforms</a><a href="#faq">FAQ</a><a href="privacy.html">Privacy</a>
+    </nav>
+    <div class="header-actions">
+      <a class="text-link" href="contact.html">Contact</a>
+      <button class="theme-btn" id="theme-toggle" type="button" aria-label="Toggle theme">☼</button>
+    </div>
+  </header>
 
-<section class="panel platform-guides" id="platform-guides">
-  <div class="panel-head"><h2><small>02</small> Instagram · YouTube · Facebook · Snapchat</h2><label>4 PLATFORMS · SAFE WORKFLOWS</label></div>
-  <p class="ig-intro">Paste an Instagram, YouTube, Facebook or Snapchat link into the checker above. MediaSave Pro identifies the platform and shows its official save/export steps. A public post link is not automatically a downloadable file.</p>
-  <div class="platform-guide-grid">
-    <article class="platform-guide-card"><span class="platform-symbol instagram-symbol">◎</span><h3>Instagram</h3><p>Save another creator’s Reel only when Instagram provides its Download option. For your own Professional account, open your connected Feed and Reels library below.</p><a class="owner-media-cta" href="owner.html">My Instagram Feed & Reels ↓</a><a href="https://help.instagram.com/" target="_blank" rel="noopener noreferrer">Instagram Help ↗</a></article>
-    <article class="platform-guide-card"><span class="platform-symbol youtube-symbol">▶</span><h3>YouTube</h3><p>For your own uploads, download from YouTube Studio. Other videos use official offline viewing where available.</p><a href="https://support.google.com/youtube/answer/56100" target="_blank" rel="noopener noreferrer">YouTube Help ↗</a></article>
-    <article class="platform-guide-card"><span class="platform-symbol facebook-symbol">f</span><h3>Facebook</h3><p>Use an available in-app Save/Download option or export your own account content.</p><a href="https://www.facebook.com/help/" target="_blank" rel="noopener noreferrer">Facebook Help ↗</a></article>
-    <article class="platform-guide-card"><span class="platform-symbol snapchat-symbol">👻</span><h3>Snapchat</h3><p>Save your own Spotlight, Stories and Snaps using Snapchat’s Save or Memories controls.</p><a href="https://help.snapchat.com/" target="_blank" rel="noopener noreferrer">Snapchat Help ↗</a></article>
-  </div>
-</section>
-<section class="panel video-tools" id="video-tools">
-  <div class="panel-head"><h2><small>03</small> HD video tools</h2><label>ON YOUR DEVICE · NO UPLOAD</label></div>
-  <p class="ig-intro">Choose a video saved on your phone to create a WebM copy up to the selected resolution or a PNG thumbnail. Processing stays in your browser; your file is not sent to MediaSave Pro.</p>
-  <label class="field-label" for="video-file">CHOOSE A VIDEO (UP TO 200 MB)</label>
-  <input class="file-input" id="video-file" type="file" accept="video/*">
-  <video id="video-preview" class="video-preview" controls playsinline hidden></video>
-  <label class="field-label" for="video-quality">OUTPUT SIZE</label>
-  <select id="video-quality" class="video-select">
-    <option value="2160">4K UHD – up to 2160p WebM</option>
-    <option value="1440">2K QHD – up to 1440p WebM</option>
-    <option value="1080">Full HD – up to 1080p WebM</option>
-    <option value="720">HD – up to 720p WebM</option>
-    <option value="480">Smaller file – up to 480p WebM</option>
-  </select>
-  <div class="video-actions">
-    <button class="submit" id="compress-video" type="button" disabled>Compress / convert to WebM</button>
-    <button class="secondary-action" id="make-thumbnail" type="button" disabled>Create PNG thumbnail</button>
-  </div>
-  <p id="video-status" class="video-status" aria-live="polite">Choose a video to begin. Processing happens locally in your browser.</p>
-  <div id="video-output" class="video-output" hidden></div>
-  <p class="video-note">The output will never exceed your source video’s resolution; selecting 4K does not add missing detail or turn a low-resolution source into true 4K. 2K/4K processing is demanding and may not work on every phone. Keep this tab open.</p>
-</section>
-<section class="panel history-panel" id="download-history">
-  <div class="panel-head"><h2><small>04</small> Recent activity</h2><button class="clear-history" id="clear-history" type="button">Clear history</button></div>
-  <p class="ig-intro">A private list of recent tool actions stored only in this browser. Media files and direct URLs are not saved in this history.</p>
-  <div id="history-list" class="history-list"><p class="history-empty">No recent activity yet.</p></div>
-</section>
-<section class="panel faq-panel" id="faq">
-  <div class="panel-head"><h2><small>05</small> Help & FAQs</h2><label>KNOW BEFORE YOU SAVE</label></div>
-  <article class="faq-item"><h3>Can I download every public Reel, Short, Facebook video or Spotlight?</h3><p>No. Public availability alone does not mean a video is downloadable. Use the platform's native download/export feature or save files you own or have permission to use. The Platform Link Guide explains the official options.</p></article>
-  <article class="faq-item"><h3>What is a direct media-file URL?</h3><p>It is a link that points to a file such as MP4, WebM, MP3, JPG or PNG—not a profile, post page or normal webpage. MediaSave Pro checks the URL format; the original host decides whether the file can be opened or downloaded.</p></article>
-  <article class="faq-item"><h3>Can Video Tools create true 4K from a 720p video?</h3><p>No. The 1080p, 2K and 4K choices are maximum output caps. The tool never upscales beyond the source resolution or invents missing detail. Processing runs on your device.</p></article>
-  <article class="faq-item"><h3>Why is there no download button for some social links?</h3><p>A platform may limit downloads, omit media URLs, or require creator permission. MediaSave Pro shows the original post and official save steps instead of bypassing restrictions.</p></article>
-</section>
-<section class="cards"><article><strong>⌁</strong><h3>Link validation</h3><p>Send a URL to the backend for validation and provider status.</p></article><article><strong>◈</strong><h3>Authorized access</h3><p>Platform integrations must use official APIs and permitted access.</p></article><article><strong>↗</strong><h3>API powered</h3><p>Frontend connects to your MediaSave Pro V3 service on Render.</p></article></section><aside><b>!</b><p><strong>Important:</strong> Direct links must point to media files you own or may save. Social-media post URLs are not direct files. Instagram creator media is available only through the connected authorized Professional account, and only when Meta returns a media URL. This service does not scrape public accounts, bypass DRM, or remove platform restrictions.</p></aside></main><footer><span>© 2026 MEDIASAVE PRO · Built with care ✦</span><span class="footer-links"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="contact.html">Contact</a></span></footer><script src="app-config.js"></script><script src="script.js?v=16"></script></body></html>
+  <main>
+    <section class="hero">
+      <div class="eyebrow"><span class="eyebrow-line"></span> SIMPLE · PRIVATE · MOBILE READY</div>
+      <h1>Save media.<br><span>Keep it simple.</span></h1>
+      <p class="hero-copy">A clean place to download direct media files you own or have permission to save. Paste a social post link to see the platform’s official save options.</p>
+
+      <div class="platform-pills" aria-label="Supported social platform guidance">
+        <button class="platform-pill active" data-platform="instagram" type="button"><span class="pill-icon instagram">◎</span> Instagram</button>
+        <button class="platform-pill" data-platform="youtube" type="button"><span class="pill-icon youtube">▶</span> YouTube</button>
+        <button class="platform-pill" data-platform="facebook" type="button"><span class="pill-icon facebook">f</span> Facebook</button>
+        <button class="platform-pill" data-platform="snapchat" type="button"><span class="pill-icon snapchat">✦</span> Snapchat</button>
+      </div>
+
+      <section class="download-card" id="download">
+        <div class="card-heading">
+          <div><span class="step-tag">01</span><div><span class="section-kicker">MEDIA LINK</span><h2>Paste your link</h2></div></div>
+          <span class="card-lock">↗</span>
+        </div>
+        <form id="download-form" novalidate>
+          <label for="media-url">VIDEO, AUDIO OR IMAGE URL</label>
+          <div class="input-wrap">
+            <span class="input-link-icon">↗</span>
+            <input id="media-url" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com/video.mp4" required>
+            <button class="clear-input" type="button" id="clear-input" aria-label="Clear link">×</button>
+          </div>
+          <p class="field-help" id="input-help">Use a direct HTTPS file link such as MP4, WebM, MP3, JPG or PNG. A social post URL is not a direct media file.</p>
+          <div class="form-actions">
+            <button class="paste-btn" id="paste-btn" type="button">Paste</button>
+            <button class="primary-btn" id="check-btn" type="submit">Check link <span>→</span></button>
+          </div>
+        </form>
+
+        <div class="result-panel" id="result-panel" hidden aria-live="polite">
+          <div class="result-head"><span class="result-check" id="result-icon">✓</span><div><strong id="result-title">Link checked</strong><small id="result-subtitle"></small></div></div>
+          <div id="result-content"></div>
+        </div>
+        <div class="sample-row"><button type="button" class="sample-btn" id="sample-btn">Try a sample MP4</button><span>Tests the direct-file download flow</span></div>
+        <p class="privacy-note"><span>▣</span> We never ask for your social-media password. Only save content you own or are allowed to use.</p>
+      </section>
+
+      <div class="trust-row"><span>✓ No login required</span><span>✓ Mobile friendly</span><span>✓ No file archive stored</span></div>
+    </section>
+
+    <section class="content-section how-section" id="how">
+      <div class="section-intro"><span class="section-kicker">THREE QUICK STEPS</span><h2>How it works</h2><p>Use a direct media-file link, or follow the platform’s own save process for a social post.</p></div>
+      <div class="steps-grid">
+        <article class="step-card"><span class="number">1</span><div class="step-icon">↗</div><h3>Copy a link</h3><p>Copy a direct file link you own or are authorised to save. For a social post, copy its page link.</p></article>
+        <article class="step-card"><span class="number">2</span><div class="step-icon">⌕</div><h3>Paste and check</h3><p>Paste it into the box. MediaSave Pro checks the link type and shows the right next step.</p></article>
+        <article class="step-card"><span class="number">3</span><div class="step-icon">↓</div><h3>Save your file</h3><p>Download an eligible direct media file, or open the original post and use official save options.</p></article>
+      </div>
+    </section>
+
+    <section class="content-section platforms-section" id="platforms">
+      <div class="section-intro"><span class="section-kicker">PLATFORM GUIDE</span><h2>Your favourite platforms</h2><p>Quick guidance for saving your own content and content whose creator permits downloads.</p></div>
+      <div class="platform-grid">
+        <article class="platform-card"><div class="platform-card-top"><span class="large-platform-icon instagram">◎</span><span class="platform-label">REELS · POSTS</span></div><h3>Instagram</h3><p>Use Instagram’s Download option when the creator allows it. For your own Professional account, open your authorised media library.</p><a href="https://help.instagram.com/" target="_blank" rel="noopener noreferrer">Instagram Help ↗</a><a class="owner-link" href="owner.html">My authorised media →</a></article>
+        <article class="platform-card"><div class="platform-card-top"><span class="large-platform-icon youtube">▶</span><span class="platform-label">VIDEOS · SHORTS</span></div><h3>YouTube</h3><p>Download your own uploads through YouTube Studio. Other videos use official offline viewing where available.</p><a href="https://support.google.com/youtube/answer/56100" target="_blank" rel="noopener noreferrer">YouTube Help ↗</a></article>
+        <article class="platform-card"><div class="platform-card-top"><span class="large-platform-icon facebook">f</span><span class="platform-label">REELS · VIDEOS</span></div><h3>Facebook</h3><p>Use an available creator-enabled download option, or export your own uploads from your account.</p><a href="https://www.facebook.com/help/" target="_blank" rel="noopener noreferrer">Facebook Help ↗</a></article>
+        <article class="platform-card"><div class="platform-card-top"><span class="large-platform-icon snapchat">✦</span><span class="platform-label">SPOTLIGHT · STORIES</span></div><h3>Snapchat</h3><p>Save your own Spotlight posts, Stories and Snaps with Snapchat’s Save or Memories controls.</p><a href="https://help.snapchat.com/" target="_blank" rel="noopener noreferrer">Snapchat Help ↗</a></article>
+      </div>
+    </section>
+
+    <section class="content-section quality-section">
+      <div class="quality-copy"><span class="section-kicker">ORIGINAL FILE QUALITY</span><h2>No fake quality promises.</h2><p>Direct downloads keep the original file as provided by its source. Our browser video tools can convert files locally, but selecting 1080p, 2K or 4K cannot add detail that is not in the original.</p><div class="quality-tags"><span>MP4</span><span>WEBM</span><span>MP3</span><span>JPG</span><span>PNG</span></div></div>
+      <div class="quality-visual"><div class="quality-orbit orbit-one"></div><div class="quality-orbit orbit-two"></div><div class="quality-file"><span>MP4</span><b>Original<br>quality</b><small>DIRECT FILE</small></div><div class="quality-caption">Source file · no artificial upscale</div></div>
+    </section>
+
+    <section class="content-section history-section" id="history">
+      <div class="history-heading"><div><span class="section-kicker">ON THIS DEVICE</span><h2>Recent activity</h2></div><button class="clear-history" id="clear-history" type="button">Clear history</button></div>
+      <div class="history-list" id="history-list"><p class="empty-history">Your recent link checks and downloads will appear here on this device.</p></div>
+    </section>
+
+    <section class="content-section faq-section" id="faq">
+      <div class="section-intro"><span class="section-kicker">GOOD TO KNOW</span><h2>Frequently asked questions</h2></div>
+      <div class="faq-list">
+        <details><summary>Can I download any public Instagram Reel?</summary><p>No. Public visibility does not automatically grant download rights or an official media URL. Use Instagram’s own Download option when available, or download your own authorised media from the private creator page.</p></details>
+        <details><summary>Why does a social post link not download?</summary><p>A post URL is a webpage, not a direct MP4 file. Platforms control media access, permissions and download options. MediaSave Pro does not scrape pages or bypass those controls.</p></details>
+        <details><summary>Does MediaSave Pro support 1080p, 2K and 4K?</summary><p>The direct downloader preserves the source file. Browser conversion presets are maximum output sizes only, depend on your device and never upscale beyond the source dimensions.</p></details>
+        <details><summary>Do I need to sign in or share my password?</summary><p>No sign-in is required for direct-file checks. The private creator page uses a separate owner access key for the site owner’s authorised Instagram account. Never share that key.</p></details>
+        <details><summary>Are my files stored on MediaSave Pro?</summary><p>Direct files are streamed to your browser and are not kept as a persistent MediaSave Pro archive. Recent activity is stored locally in your browser.</p></details>
+        <details><summary>Why might a direct link fail?</summary><p>The host may block server requests, require a session, redirect to another page, or return a file larger than the current limit. Try the source’s own download option.</p></details>
+      </div>
+    </section>
+
+    <section class="notice-section"><span class="notice-icon">i</span><p><b>Respect creators and copyright.</b> MediaSave Pro is an independent utility. Only download media you created, own, are licensed to use, or have clear permission to save. Platform names are used only to identify official help and workflows.</p></section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-main"><a class="brand footer-brand" href="./"><span class="brand-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4v17m-7-7 7 7 7-7M7 27h18"/></svg></span><span>MediaSave <b>Pro</b></span></a><p>Save permitted media simply. Built for everyday use.</p></div>
+    <div class="footer-links"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="dmca.html">Copyright / DMCA</a><a href="contact.html">Contact</a><a href="owner.html">Creator page</a></div>
+    <p class="copyright">© <span id="year"></span> MediaSave Pro. Not affiliated with Instagram, Meta, YouTube, Facebook or Snapchat.</p>
+  </footer>
+</body>
+</html>
