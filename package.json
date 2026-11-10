@@ -1,8 +1,8 @@
 {
   "name": "mediasave-pro-api",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "private": true,
-  "description": "Safe starter API for MediaSave Pro",
+  "description": "Hybrid public media tools with official platform guides and private authorized creator media",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
