@@ -52,7 +52,7 @@ const blob=await exportCanvas(canvas,type,quality);return{blob,canvas,width:w,he
 function addResult(file,result){const url=URL.createObjectURL(result.blob),name=fileBase(file.name)+'-'+tool+'.'+ext(result.type),before=file.size,after=result.blob.size,card=document.createElement('article');card.className='result-item';const image=document.createElement('img');image.src=url;image.alt='Processed image preview';image.loading='lazy';const title=document.createElement('strong');title.textContent=name;const meta=document.createElement('small');meta.textContent=result.width+' × '+result.height+' px · '+fmt(after)+(before!==after?' · original '+fmt(before):'');const a=document.createElement('a');a.href=url;a.download=name;a.textContent='Download image ↓';card.append(image,title,meta,a);results.appendChild(card)}
 function extractColors(img){const{c,ctx}=basicCanvas(img);const small=makeCanvas(70,70),sctx=small.getContext('2d');sctx.drawImage(c,0,0,70,70);const d=sctx.getImageData(0,0,70,70).data,map=new Map();for(let i=0;i<d.length;i+=4){if(d[i+3]<100)continue;const r=Math.round(d[i]/32)*32,g=Math.round(d[i+1]/32)*32,b=Math.round(d[i+2]/32)*32,key=[Math.min(255,r),Math.min(255,g),Math.min(255,b)].join(',');map.set(key,(map.get(key)||0)+1)}return [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8).map(([key])=>key.split(',').map(Number))}
 function toHex(rgb){return '#'+rgb.map(n=>Math.max(0,Math.min(255,n)).toString(16).padStart(2,'0')).join('').toUpperCase()}
-async function selected(){selectedFiles=[...fileInput.files].filter(f=>f.type.startsWith('image/'));$('file-count').textContent=selectedFiles.length?selectedFiles.length+' image(s) selected: '+selectedFiles.map(x=>x.name).join(', '):'No images selected yet.';preview.replaceChildren();results.replaceChildren();if(!selectedFiles.length)return;try{const img=await loadImage(selectedFiles[0]);originalSize={w:img.naturalWidth,h:img.naturalHeight};const p=document.createElement('img'),u=URL.createObjectURL(selectedFiles[0]);p.src=u;p.alt='Selected image preview';preview.appendChild(p);const meta=document.createElement('div');meta.className='preview-caption';meta.textContent=originalSize.w+' × '+originalSize.h+' px · '+fmt(selectedFiles[0].size)+' · '+selectedFiles[0].type;preview.appendChild(meta);if(tool==='resize-image'){$('width').value=originalSize.w;$('height').value=originalSize.h}if(tool==='crop-image'){$('crop-x').value=0;$('crop-y').value=0;$('crop-w').value=originalSize.w;$('crop-h').value=originalSize.h}if(tool==='metadata-cleaner')$('metadata-info').textContent='File: '+selectedFiles[0].name+'\nType: '+selectedFiles[0].type+'\nSize: '+fmt(selectedFiles[0].size)+'\nDimensions: '+originalSize.w+' × '+originalSize.h+' pixels';if(tool==='color-palette')drawPalette(img)}catch(e){status.textContent=e.message}}
+async function selected(){selectedFiles=[...fileInput.files].filter(f=>f.type.startsWith('image/'));$('file-count').textContent=selectedFiles.length?selectedFiles.length+' image(s) selected: '+selectedFiles.map(x=>x.name).join(', '):'No images selected yet.';preview.replaceChildren();results.replaceChildren();preview.hidden=true;if(!selectedFiles.length)return;try{const img=await loadImage(selectedFiles[0]);originalSize={w:img.naturalWidth,h:img.naturalHeight};const p=document.createElement('img'),u=URL.createObjectURL(selectedFiles[0]);p.src=u;p.alt='Selected image preview';preview.appendChild(p);preview.hidden=false;const meta=document.createElement('div');meta.className='preview-caption';meta.textContent=originalSize.w+' × '+originalSize.h+' px · '+fmt(selectedFiles[0].size)+' · '+selectedFiles[0].type;preview.appendChild(meta);if(tool==='resize-image'){$('width').value=originalSize.w;$('height').value=originalSize.h}if(tool==='crop-image'){$('crop-x').value=0;$('crop-y').value=0;$('crop-w').value=originalSize.w;$('crop-h').value=originalSize.h}if(tool==='metadata-cleaner')$('metadata-info').textContent='File: '+selectedFiles[0].name+'\nType: '+selectedFiles[0].type+'\nSize: '+fmt(selectedFiles[0].size)+'\nDimensions: '+originalSize.w+' × '+originalSize.h+' pixels';if(tool==='color-palette')drawPalette(img)}catch(e){status.textContent=e.message}}
 function drawPalette(img){const host=$('palette-results');host.replaceChildren();const colors=extractColors(img);colors.forEach(rgb=>{const sw=document.createElement('button');sw.type='button';sw.className='swatch';sw.style.background=toHex(rgb);sw.title='Copy '+toHex(rgb);sw.textContent=toHex(rgb);sw.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(toHex(rgb));sw.textContent='Copied!';setTimeout(()=>sw.textContent=toHex(rgb),1000)}catch{sw.textContent=toHex(rgb)}});host.appendChild(sw)})}
 fileInput?.addEventListener('change',selected);
 if(processBtn)processBtn.addEventListener('click',async()=>{if(!selectedFiles.length){status.textContent='Choose an image first.';return}results.replaceChildren();status.textContent='Processing '+selectedFiles.length+' image(s)…';processBtn.disabled=true;let ok=0;for(const file of selectedFiles){try{if(tool==='color-palette'){drawPalette(await loadImage(file));ok++;continue}const result=await processImage(file);addResult(file,result);ok++}catch(e){const p=document.createElement('p');p.className='error-note';p.textContent=file.name+': '+e.message;results.appendChild(p)}}status.textContent='Finished: '+ok+' of '+selectedFiles.length+' image(s) processed.';processBtn.disabled=false});
@@ -60,5 +60,27 @@ if($('year'))$('year').textContent=new Date().getFullYear();
 if(tool==='color-palette')processBtn.textContent='Extract colours';
 if(tool==='metadata-cleaner')processBtn.textContent='Remove metadata & create clean copy';
 setupOptions();
-document.querySelectorAll('[data-search]').forEach(x=>x.addEventListener('input',()=>{}));
+
+const toolGrid=$('tool-grid'),toolSearch=$('tool-search');
+if(toolGrid){
+ const cards=[...toolGrid.querySelectorAll('.tool-card')];
+ let activeFilter='all';
+ function filterTools(){
+  const query=(toolSearch?.value||'').trim().toLowerCase();let shown=0;
+  cards.forEach(card=>{
+   const category=card.querySelector('.tool-group')?.textContent.trim()||'';
+   const text=card.textContent.toLowerCase();
+   const matches=(activeFilter==='all'||category.toLowerCase()===activeFilter.toLowerCase())&&(!query||text.includes(query));
+   card.hidden=!matches;if(matches)shown++;
+  });
+  const empty=$('no-tools');if(empty)empty.hidden=shown>0;
+ }
+ toolSearch?.addEventListener('input',filterTools);
+ document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{
+  activeFilter=button.dataset.filter;
+  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('active',b===button));
+  filterTools();
+ }));
+}
+
 })();
